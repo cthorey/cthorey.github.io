@@ -2,7 +2,7 @@
 layout: post
 title: What does the gradient flowing through batch normalization looks like ?
 date: 2016-01-28T20:35:04+01:00
-published: true
+published: false
 ---
 
 This  past week,  I  have been  working on  the  assignments from  the
