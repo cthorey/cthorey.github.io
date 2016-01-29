@@ -81,13 +81,13 @@ looks like
 
 Implementing the forward pass of the batch norm transformation is straightforward
 
-~~~ python
+{% highlight python %}
 # Forward pass 
 mu = 1/N*np.sum(h,axis =0) # Size (H,) 
 sigma2 = 1/N*np.sum((h-mu)**2,axis=0)# Size (H,) 
 hath = (h-mu)*(sigma2+epsilon)**(-1./2.)
 y = gamma*hath+beta 
-~~~
+{% endhighlight %}
 
 
 The tricky
