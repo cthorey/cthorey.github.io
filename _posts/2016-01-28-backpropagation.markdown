@@ -297,4 +297,4 @@ neural networks.
 
 Finnaly, for those  who want to take a look  to my full implementation
 of batch normalization for a  fully-connected neural networks, you can
-found it [here](git@github.com:cthorey/CS231.git).
+found it [here](https://github.com/cthorey/CS231).
