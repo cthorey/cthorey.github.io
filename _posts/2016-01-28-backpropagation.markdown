@@ -117,7 +117,7 @@ $$
 \frac{d\mathcal{L}}{dh} =
 \begin{pmatrix}
    \frac{d\mathcal{L}}{dh_{11}} & .. & \frac{d\mathcal{L}}{dh_{1H}} \\
-   .. & \frac{d\mathcal{L}}{dh_{il}} & .. \\
+   .. & \frac{d\mathcal{L}}{dh_{kl}} & .. \\
    \frac{d\mathcal{L}}{dh_{N1}} & ... & \frac{d\mathcal{L}}{dh_{NH}}
 \end{pmatrix}.
 \end{equation}
@@ -271,7 +271,7 @@ mu = 1./N*np.sum(h, axis = 0)
 var = 1./N*np.sum((h-mu)**2, axis = 0)
 dbeta = np.sum(dy, axis=0)
 dgamma = np.sum((h - mu) * (var + eps)**(-1. / 2.) * dy, axis=0)
-dx = (1. / N) * gamma * (var + eps)**(-1. / 2.) * (N * dy - np.sum(dy, axis=0)
+dh = (1. / N) * gamma * (var + eps)**(-1. / 2.) * (N * dy - np.sum(dy, axis=0)
     - (h - mu) * (var + eps)**(-1.0) * np.sum(dy * (h - mu), axis=0))
 {% endhighlight %}
 
