@@ -1,41 +1,3 @@
----
-layout: post
-title: "test"
-published: true
----
-
-And here, I've used d3 to target an element `<div id="example">` in this document:
-
-<style>
-div.example {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-
-.box {
-  font: 10px sans-serif;
-}
-
-.box line,
-.box rect,
-.box circle {
-  fill: #fff;
-  stroke: #000;
-  stroke-width: 1.5px;
-}
-
-.box .center {
-  stroke-dasharray: 3,3;
-}
-
-.box .outlier {
-  fill: none;
-  stroke: #ccc;
-}
-
-</style>
-<script src="http://d3js.org/d3.v3.min.js"></script>
-<script src="http://bl.ocks.org/mbostock/raw/4061502/0a200ddf998aa75dfdb1ff32e16b680a15e5cb01/box.js"></script>
-<script>
 
 var margin = {top: 10, right: 50, bottom: 20, left: 50},
     width = 120 - margin.left - margin.right,
@@ -105,18 +67,3 @@ function iqr(k) {
     return [i, j];
   };
 }
-
-</script>
-
-<div id="example"></div>
-
-To do this, I made the following changes:
-
-- change `var svg = d3.select("body").selectAll("svg")` to `var svg = d3.select("div#example").selectAll("svg")`
-- save `morley.csv` to the root directory of my Jekyll site, then change `d3.csv("morley.csv", function(error, csv)` to `d3.csv("/morley.csv", function(error, csv)` (copied this file into project to resolve cross-site scripting errors)
-- change `<script src="box.js"></script>` to `<script src="http://bl.ocks.org/mbostock/raw/4061502/0a200ddf998aa75dfdb1ff32e16b680a15e5cb01/box.js"></script>`
-- create a new element called `<div id="example"></div>`
-
-Check out [the code for this post on GitHub](https://raw.githubusercontent.com/nicksuch/nicksuch.github.io/master/_posts/2014-03-26-d3-sample.md) to see how I did it!
-
-
