@@ -117,7 +117,7 @@ $$
 \frac{d\mathcal{L}}{dh} =
 \begin{pmatrix}
    \frac{d\mathcal{L}}{dh_{11}} & .. & \frac{d\mathcal{L}}{dh_{1H}} \\
-   .. & \frac{d\mathcal{L}}{dh_{il}} & .. \\
+   .. & \frac{d\mathcal{L}}{dh_{kl}} & .. \\
    \frac{d\mathcal{L}}{dh_{N1}} & ... & \frac{d\mathcal{L}}{dh_{NH}}
 \end{pmatrix}.
 \end{equation}
