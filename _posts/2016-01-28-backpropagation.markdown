@@ -271,7 +271,7 @@ mu = 1./N*np.sum(h, axis = 0)
 var = 1./N*np.sum((h-mu)**2, axis = 0)
 dbeta = np.sum(dy, axis=0)
 dgamma = np.sum((h - mu) * (var + eps)**(-1. / 2.) * dy, axis=0)
-dx = (1. / N) * gamma * (var + eps)**(-1. / 2.) * (N * dy - np.sum(dy, axis=0)
+dh = (1. / N) * gamma * (var + eps)**(-1. / 2.) * (N * dy - np.sum(dy, axis=0)
     - (h - mu) * (var + eps)**(-1.0) * np.sum(dy * (h - mu), axis=0))
 {% endhighlight %}
 
