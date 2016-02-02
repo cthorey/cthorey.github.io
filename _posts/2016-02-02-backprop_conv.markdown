@@ -2,7 +2,7 @@
 layout: post
 title: Backpropagation through a convolutional layer
 date: 2016-02-02T09:05:36+01:00
-published: true
+published: false
 ---
 
 This post is a follow-up on  the second assignment proposed as part of
@@ -36,7 +36,7 @@ differently specifies, I'll use the following
 - $c$ for the different channel
 - $f,k$ for the spatial ouput
 
-## Forward pass
+### Forward pass
 
 The first step  is the implementation of the forward  pass. Instead of
 jumping into it, let's first look at  an example; an input $X$ of size
@@ -141,7 +141,7 @@ for n in range(N):  # First, iterate over all the images
                 out[n, f, k, l] = np.sum(x_pad[n, :, k * S:k * S + HH, l * S:l * S + WW] * w[f, :]) + b[f]
 {% endhighlight %}
 
-## Backward pass
+### Backward pass
 
 During the backward pass, we have to compute $$\frac{d\mathcal{L}}{dw},
 \frac{d\mathcal{L}}{dx},\frac{d\mathcal{L}}{db}$$    where    each
@@ -150,7 +150,7 @@ the  quantity  itself  and  where  we  know  from  the  previous  pass
 $$\frac{d\mathcal{L}}{dy}$$                (see               previous
 [post](http://cthorey.github.io/backpropagation/) for more details).
 
-### Gradient with respect to the weights  $$\frac{d\mathcal{L}}{dw}$$
+#### Gradient with respect to the weights  $$\frac{d\mathcal{L}}{dw}$$
 
 The gradient of the loss with respect to the weights has the same size
 as  the  weights  themselves   ($F$,$C$,$HH$,$WW$).  Chaining  by  the
@@ -199,7 +199,7 @@ for fprime in range(F):
                 dw[fprime, cprime, i, j] = np.sum(dout[:, fprime, :, :] * sub_xpad)
 {% endhighlight %}
 
-### Gradient with respect to the bias $$\frac{d\mathcal{L}}{db}$$
+#### Gradient with respect to the bias $$\frac{d\mathcal{L}}{db}$$
 
 The gradient of the loss with respect to the bias is of size ($F$).  Chaining by the
 gradient of the loss with respect to the outputs $y$ and simplifying, it reads
@@ -224,7 +224,7 @@ for fprime in range(F):
 
 
 
-### Gradient with respect to the input $$\frac{d\mathcal{L}}{dx}$$
+#### Gradient with respect to the input $$\frac{d\mathcal{L}}{dx}$$
 
 As above, we first  chain by the gradient of the  loss with respect to
 the output $y$, which gives
@@ -319,7 +319,7 @@ which  in  python can  be  written  with  a  nice intrication  of  $9$
 beautifull loops ;)
 
 {% highlight python %}
-# For dx : Size (N,C,H,W)
+ # For dx : Size (N,C,H,W)
 dx = np.zeros((N, C, H, W))
 for nprime in range(N):
     for cprime in range(C):
@@ -340,4 +340,129 @@ for nprime in range(N):
 I am sure  this $9$ loops are  not strickly necessary, but,  we are ask
 not to care to much about efficiency, so, why bother ... :)
 
+
+
+
+## Pooling layer
+
+A  pooling layer  reduce the  spatial  dimension of  an imput  without
+affecting its depth.
+
+Basically, if  a given input $x$  has a size ($N,C,H,W$),  then the output
+will have a size ($N,C,H_1,W_1$) where $H_1$ and $W_1$ are given by 
+
+$$
+\begin{eqnarray}
+H_1 &=& (H-H_p)/S+1 \\
+W_1 &=& (W-W_p)/S+1 \\
+\end{eqnarray}
+$$
+
+and  where  $H_p$,  $W_p$  and   $S$  are  three  hyperparameters  which
+corresponds to
+
+- $H_p$ is the height of the pooling region
+- $H_w$ is the width of the pooling region
+- $S$ is the stride, the distance between two adjacent pooling region.
+
+### Forward pass
+
+The  forward pass  is very  similar to  the one  of the  convolutional
+layer and reads
+
+$$
+\begin{equation}
+y_{n,c,k,l} =
+\max{\begin{pmatrix}
+    x_{n,c,kS,lS} & ... &  x_{n,c,kS,W_p+lS}\\
+   ... & ... & ... \\
+    x_{n,c,kS+H_p,lS} & ... &     x_{n,c,kS+H_p,lS+W_p} \\
+\end{pmatrix}}.
+\end{equation}
+$$
+
+or, more pleasantly, 
+
+$$
+\begin{eqnarray}
+y_{n,c,k,l} &=& \displaystyle \max_{0 \le p<H_p,0 \le q<W_p} x_{n,c,p+kS,q+lS}
+\end{eqnarray}
+$$
+
+which in python translates to 
+
+{% highlight python %}
+out = np.zeros((N, C, H1, W1))
+for n in range(N):
+    for c in range(C):
+        for k in range(H1):
+            for l in range(W1):
+                out[n, c, k, l] = np.max(x[n, c, k * S:k * S + Hp, l * S:l * S + Wp])
+{% endhighlight %}
+
+### Backward pass
+
+The gradient of the loss with respect  to the input $x$ of the pooling
+layer writes
+
+$$
+\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',i,j}} = \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',i,j}}.
+\end{eqnarray}
+$$
+
+Let's look at  the second term. In particular, we  are going to assume
+that the spatial  indices of the max in $y_{n,c,k,l}$  are $p_m$
+and $q_m$ respectively. Therefore,
+
+\begin{eqnarray}
+y_{n,c,k,l} &=& x_{n,c,p_m,q_m}
+\end{eqnarray}
+
+and
+
+$$
+\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',i,j}}&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',i,j}}\\
+&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\delta_{n,n'}\delta_{c,c'}\delta_{i,p_m}\delta_{j,q_m}\\
+&=& \sum_{k,l}\frac{d\mathcal{L}}{dy_{n',c',k,l}}\delta_{i,p_m}\delta_{j,q_m}
+\end{eqnarray}
+$$
+
+and we  are done! Indeed,  in python, find the  indices of the  max is
+fairly easy and the leasy compute of the gradient reads
+
+{% highlight python %}
+dx = np.zeros((N, C, H, W))
+for nprime in range(
+    for cprime in range(C):
+        for i in range(H):
+            for j in range(W):
+                for k in range(H1):
+                    for l in range(W1):
+                        x_pooling = x[nprime, cprime, k * S:k * S+ Hp, l * S:l * S + Wp]
+                        maxi = np.max(x_pooling)
+                        # Make sure to find the indexes in x and not x_pooling !!!!
+                        x_mask = x[nprime, cprime, :, :] == maxi
+                        pm, qm = np.unravel_index(x_mask.argmax(), x_mask.shape)
+                        if (i == pm) & (j == qm):
+                            dx[nprime, cprime, i,j] += dout[nprime, cprime, k, l]
+{% endhighlight %}
+
+Note here that we are calculating the same **x_pooling** many times. A
+more clever solution, computationally speaking is the following
+
+{% highlight python %}
+dx = np.zeros((N, C, H, W))
+for nprime in range(N):
+    for cprime in range(C):
+        for k in range(H1):
+            for l in range(W1):
+                x_pooling = x[nprime, cprime, k *S:k * S + Hp, l * S:l * S + Wp]
+                maxi = np.max(x_pooling)
+                x_mask = x_pooling == maxi
+                dx[nprime, cprime, k * S:k * S + Hp, l * S:l *S + Wp] += dout[nprime, cprime, k, l] * x_mask
+{% endhighlight %}
+
+But we are note looking for efficiency here, are we ?? ;)
 
