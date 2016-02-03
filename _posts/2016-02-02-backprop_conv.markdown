@@ -2,7 +2,7 @@
 layout: post
 title: Backpropagation through a convolutional layer
 date: 2016-02-02T09:05:36+01:00
-published: false
+published: true
 ---
 
 This post is a follow-up on  the second assignment proposed as part of
@@ -315,8 +315,7 @@ $$
 \end{eqnarray}
 $$
 
-which  in  python can  be  written  with  a  nice intrication  of  $9$
-beautifull loops ;)
+which  in  python can  be  written  with  a  nice intrication  of  $9$ loops ;)
 
 {% highlight python %}
  # For dx : Size (N,C,H,W)
@@ -337,10 +336,29 @@ for nprime in range(N):
 
 {% endhighlight %}
 
-I am sure  this $9$ loops are  not strickly necessary, but,  we are ask
-not to care to much about efficiency, so, why bother ... :)
+Though  inneficient,   this  implementation   has  the   advantage  of
+translating  point  by  point  the  formula.  A  may  be  more  clever
+implementation could look like
 
-
+{% highlight python %}
+dx = np.zeros((N, C, H, W))
+for nprime in range(N):
+    for i in range(H):
+        for j in range(W):
+            for f in range(F):
+                for k in range(Hh):
+                    for l in range(Hw):
+                        mask1 = np.zeros_like(w[f, :, :, :])
+                        mask2 = np.zeros_like(w[f, :, :, :])
+                        if (i + P - k * S) < HH and (i + P - k * S) >= 0:
+                            mask1[:, i + P - k * S, :] = 1.0
+                        if (j + P - l * S) < WW and (j + P - l * S) >= 0:
+                            mask2[:, :, j + P - l * S] = 1.0
+                        w_masked = np.sum(w[f, :, :, :] * mask1 * mask2, axis=(1, 2))
+                        dx[nprime, :, i, j] += dout[nprime, f, k, l] * w_masked
+{% endhighlight %}
+which somewhat still very inneficient ;) If anyone has any idea on how
+to remove the **i** and **j** loops, please tell me !
 
 
 ## Pooling layer
