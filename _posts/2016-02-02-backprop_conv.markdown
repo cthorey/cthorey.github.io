@@ -2,7 +2,7 @@
 layout: post
 title: Backpropagation through a convolutional layer
 date: 2016-02-02T09:05:36+01:00
-published: true
+published: false
 ---
 
 This post is a follow-up on  the second assignment proposed as part of
