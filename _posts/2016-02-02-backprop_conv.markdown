@@ -2,7 +2,7 @@
 layout: post
 title: Backpropagation through a convolutional layer
 date: 2016-02-02T09:05:36+01:00
-published: false
+published: true
 ---
 
 This post is a follow-up on  the second assignment proposed as part of
@@ -483,4 +483,121 @@ for nprime in range(N):
 {% endhighlight %}
 
 But we are note looking for efficiency here, are we ?? ;)
+
+
+## Spatial batch-normalization
+
+Finally, we are asked to implement a vanilla version of batch norm for
+the convolutional layer.
+
+Indeed, following the argument that the feature map was produced using
+convolutions, then we expect the statistics of each feature channel to
+be relatively  consistent both between different  images and different
+locations   within   the   same  image.    Therefore   spatial   batch
+normalization computes a mean and variance for each of the $C$ feature
+channels by computing statistics over both the minibatch dimension $N$
+and the spatial dimensions $H$ and $W$.
+
+
+### Forward pass
+
+The forward pass is straighforward here
+
+$$
+\begin{eqnarray}
+y_{nckl} &=& \gamma_c \hat{x}_{nckl}+\beta_c\\
+\hat{x}_{nckl} &=& \left(x_{nckl}-\mu_c\right)\left(\sigma_c^2+\epsilon\right)^{-1/2}
+\end{eqnarray}
+$$
+
+where
+
+$$
+\begin{eqnarray}
+\mu_c &=& \frac{1}{NHW}\sum_{mqp} x_{mcqp}\\
+\sigma_c^2 &=& \frac{1}{NHW}\sum_{mqp} \left( x_{mcqp}-\mu_c\right)^2\\
+\end{eqnarray}
+$$
+
+In four line of python, it resumes to
+
+{% highlight python %}
+mu = (1. / (N * H * W) * np.sum(x, axis=(0, 2, 3))).reshape(1, C, 1, 1)
+var = (1. / (N * H * W) * np.sum((x - mu)**2,axis=(0, 2, 3))).reshape(1, C, 1, 1)
+xhat = (x - mu) / (np.sqrt(eps + var))
+out = gamma.reshape(1, C, 1, 1) * xhat + beta.reshape(1, C, 1, 1)
+{% endhighlight %}
+
+### Backward pass
+
+In   the  backward   pass,  we   have  to   find  an   expression  for
+$$\frac{d\mathcal{L}}{d\gamma},
+\frac{d\mathcal{L}}{d\beta},\frac{d\mathcal{L}}{dx}$$    where    each
+gradient with respect to a quantity contains a vector of size equal to
+the quantity itself.
+
+### Gradient of the loss with respect to $\beta$
+
+$$
+\begin{eqnarray}
+\frac{d\mathcal{L}}{d\beta_{c'}}                                   &=&
+\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\beta_{c'}}\\
+&=& \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\delta_{c,c'}\\
+&=& \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\\
+\end{eqnarray}
+$$
+
+### Gradient of the loss with respect to $\gamma$
+
+$$
+\begin{eqnarray}
+\frac{d\mathcal{L}}{d\gamma_{c'}}                                   &=&
+\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\gamma_{c'}}\\
+&=& \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\delta_{c,c'}\hat{x}_{n,c,k,l}\\
+&=& \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\hat{x}_{n,c',k,l}\\
+\end{eqnarray}
+$$
+
+### Gradient of the loss with respect to the input $x$
+
+$$
+\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',k',l'}}                                   &=&
+\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',k',l'}}\\
+&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\hat{x}_{n,c,k,l}}\frac{d\hat{x}_{n,c,k,l}}{dx_{n',c',k',l'}}
+\end{eqnarray}
+$$
+
+
+$$
+\begin{eqnarray}
+\frac{d\hat{x}_{n,c,k,l}}{dx_{n',c',k',l'}}                          &=&
+\left(\delta_{n,n'}\delta_{c,c'}\delta_{k,k'}\delta_{l,l'}-\frac{\delta_{c,c'}}{NHW}\right)\left(\sigma_c^2+\epsilon\right)^{-1/2}\\
+&-&\frac{1}{2}\frac{d\sigma_c^2}{dx_{n',c',k',l'}}\left(\sigma_c^2+\epsilon\right)^{-3/2}\left(x_{n,c,k,l}-\mu_c\right)
+\end{eqnarray}
+$$
+
+As
+
+$$
+\begin{eqnarray}
+\frac{d\sigma_c^2}{d x_{n',c',k',l'}} = \frac{2}{NHW}\left(x_{n',c,k',l'}-\mu_{c}\right)\delta_{c,c'}
+\end{eqnarray}
+$$
+
+then
+
+$$
+\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',k',l'}}
+&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\hat{x}_{n,c,k,l}}\frac{d\hat{x}_{n,c,k,l}}{dx_{n',c',k',l'}}\\
+&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\gamma_c\delta_{c,c'}\left( \left(\delta_{n,n'}\delta_{c,c'}\delta_{k,k'}\delta_{l,l'}-\frac{\delta_{c,c'}}{NHW}\right)\left(\sigma_c^2+\epsilon\right)^{-1/2}\right)\\
+&-&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\gamma_c\delta_{c,c'}\frac{1}{NHW}\left(x_{n',c,k',l'}-\mu_{c}\right)\delta_{c,c'}\left(\sigma_c^2+\epsilon\right)^{-3/2}\left(x_{n,c,k,l}-\mu_c\right)\\
+&=&\frac{d\mathcal{L}}{dy_{n',c',k',l'}}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}-\frac{1}{NHW}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\gamma_c'\left(\sigma_c'^2+\epsilon\right)^{-1/2}\\
+&-&\gamma_c'\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-3/2}\frac{1}{NHW}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\\
+&=&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(NHW\frac{d\mathcal{L}}{dy_{n',c',k',l'}}
++\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\right)\\
+&-&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-1}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\right)\\
+\end{eqnarray}
+$$
 
