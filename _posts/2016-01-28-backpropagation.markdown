@@ -17,18 +17,18 @@ others that are struggling with back propagation.
 
 ## Batch normalization
 
-Batch    normalization    is    a   recent    idea    introduced    by
+Batch    normalisation    is    a   recent    idea    introduced    by
 [Ioffe  et  al,  2015](http://arxiv.org/abs/1502.03167)  to  ease  the
 training of large  neural networks. The idea behind it  is that neural
 networks  tend  to   learn  better  when  their   input  features  are
 uncorrelated with zero mean and unit  variance. As each layer within a
 neural network  see the activations  of the previous layer  as inputs,
-the same idea could be apply  to each layer.  Batch normalization does
-exactly that by normalizing the  activations over the current batch in
+the same idea could be apply  to each layer.  Batch normalisation does
+exactly that by normalising the  activations over the current batch in
 each hidden layer, generally right before the non-linearity.
 
 To be more specific, for a given input batch $x$ of size $(N,D)$ going
-through a hidden layer of size H, some weights $w$ of size $(D,H)$ and
+through a hidden layer of size $H$, some weights $w$ of size $(D,H)$ and
 a bias $b$  of size $(H)$, the common layer  structure with batch norm
 looks like
 
@@ -39,7 +39,7 @@ looks like
     where  $h$ contains  the  results of  the linear  transformation
     (size $(N,H)$).
     
-2. Batch normalization transform
+2. Batch normalisation transform
 
     $$y = \gamma \hat{h}+\beta$$
 
@@ -51,7 +51,7 @@ looks like
     $(N,H)$).  Indeed, the parameter  $\mu$ ($H$) and $\sigma^2$ ($H$)
     are  the  respective  average   and  standard  deviation  of  each
     activation over the full batch (of size $N$). Note that, this expression
-    implictely assume broadcasting as $h$  is of size $(N,H)$ and both
+    implicitly assume broadcasting as $h$  is of size $(N,H)$ and both
     $\mu$  and $\sigma$  have  size  equal to  $(H)$.  A more  correct
     expression would be
 
@@ -59,7 +59,7 @@ looks like
 
     where
 
-    $$ \mu_l = \frac{1}{N}\sum_p h_{pj}$$
+    $$ \mu_l = \frac{1}{N}\sum_p h_{pl}$$
 
     $$ \sigma^2_l = \frac{1}{N}\sum_p (h_{pl}-\mu_l)^2.$$
 
@@ -72,10 +72,10 @@ looks like
     which now  see a zero mean  and unit variance input  and where $a$
     contains  the activations  of size  $(N,H)$.  Also  note that,  as
     $\gamma$  and $\beta$  are learnable  parameters, the  network can
-    unlearn the batch normalization transformation. In particular, the
-    claim that the non-linearity see a  zero mean and unit variance is
-    only  certainly true  in the  first forward  call as  $\gamma$ and
-    $\beta$ are usually initialize to $1$ and $0$ respectively.
+    unlearn the batch normalisation transformation. In particular, the
+    claim that  the non-linearity sees  a zero mean and  unit variance
+    input is only certainly true in the first forward call as $\gamma$
+    and $\beta$ are usually initialised to $1$ and $0$ respectively.
 
 ## Derivation
 
@@ -98,7 +98,7 @@ are two strategies to implement it.
    backprop through all intermediate values
 2.  Work out the derivatives on paper. 
 
-The 2nd step made me realise  I did not fully understood backprogation
+The 2nd step made me realise  I did not fully understand backprogation
 before this  assignment. Backpropation, an abbreviation  for "backward
 propagation of  errors", calculates  the gradient  of a  loss function
 $\mathcal{L}$ with respect to all the  parameters of the network. In our case,
@@ -109,7 +109,7 @@ Mathematically,     this     reads     $$\frac{d\mathcal{L}}{d\gamma},
 \frac{d\mathcal{L}}{d\beta},\frac{d\mathcal{L}}{dh}$$    where    each
 gradient with respect to a quantity contains a vector of size equal to
 the quantity  itself. For me,  the aha-moment  came when I  decided to
-properly  write the  expression for  these gradient.  For instance,  the
+properly  write the  expression for  these gradients.  For instance,  the
 gradient with respect to the input $h$ literally reads
 
 $$
@@ -145,7 +145,7 @@ $$ y_{kl} = \gamma_l \hat{h}_{kl}+\beta_l$$.
 
 We can  therefore chain the gradient  of the loss with  respect to the
 input $$h_{ij}$$ by  the gradient of the loss with  respect to **ALL**
-the ouputs $$y_{kl}$$ which reads
+the outputs $$y_{kl}$$ which reads
 
 $$
 \begin{eqnarray}
@@ -154,7 +154,7 @@ $$
 $$
 
 which  we  can  also  chain  by  the  gradient  with  respect  to  the
-centered input $\hat{h}_{kl}$ to break down the problem a little more
+centred input $\hat{h}_{kl}$ to break down the problem a little more
 
 $$
 \begin{eqnarray}
@@ -188,14 +188,14 @@ get  this  one,  you  are  good  to  backprop  whatever  function  you
 encounter so make sure you understand it before going further.
 
 This is just the case of translation though. What if we consider the real
-batch normalization transformation ?
+batch normalisation transformation ?
 
 In  that  case,  the  transformation  considers  both  translation  and
-rescaling
+rescaling and reads
 
-$$ \hat{h_{kl}} = (h_{kl}- \mu_l)(\sigma^2_l+\epsilon)^{-1/2} ?$$
+$$ \hat{h_{kl}} = (h_{kl}- \mu_l)(\sigma^2_l+\epsilon)^{-1/2}.$$
 
-Therefore, the gradient of the centered input $$h_{kl}$$ with respect to
+Therefore, the gradient of the centred input $$\hat{h}_{kl}$$ with respect to
 the input $$h_{ij}$$ reads
 
 $$
@@ -230,7 +230,7 @@ $$
 $$
 
 Wrapping everything together, we finally find that the gradient of the
-loss function $\mathcal{L}$ with respect to the layer input finaly reads
+loss function $\mathcal{L}$ with respect to the layer inputs finally reads
 
 $$
 \begin{eqnarray}
@@ -264,7 +264,7 @@ $$
 
 After the hard work derivation are  done, you can simply just drop these
 expressions into python for the  calculation. The implementation of the
-batch norm backward pass should look like
+batch norm backward pass looks like
 
 {% highlight python %}
 mu = 1./N*np.sum(h, axis = 0)
@@ -279,22 +279,17 @@ and with that, you good to go !
 
 ## Conclusion
 
-In this post,  I focus on deriving the backward  pass for implementing
-batch-norm in a fully connected neural networks. The take home message
-here is
-
-**If you want to derive the gradient through a transformation, take a
-pen, and write it down term by term !**
-
-For me,  trying to get an  expression by just looking  at the centered
-inputs and  trying to match  the dimensions to get  $d\gamma$, $d\beta$
-and  $dh$ simply  do not  work  this time.  It is  really by  writing
-everything done that I nailed the problem. 
+In this  post, I focus  on deriving  an analytical expression  for the
+backward  pass to  implement batch-norm  in a  fully connected  neural
+networks. Indeed, trying  to get an expression by just  looking at the
+centred inputs  and trying to  match the dimensions to  get $d\gamma$,
+$d\beta$ and $dh$ simply do not  work this time.  In contrast, working
+the derivative on papers nicely leads to the solution ;)
 
 To finish,  I'd like to  thank all the  team from the  CS231 Standford
-class  who do  a fantastic  work in  vulgarizing the  knowledge behind
+class  who do  a fantastic  work in  vulgarising the  knowledge behind
 neural networks. 
 
-Finnaly, for those  who want to take a look  to my full implementation
-of batch normalization for a  fully-connected neural networks, you can
-found it [here](https://github.com/cthorey/CS231).
+For those who want  to take a look to my  full implementation of batch
+normalisation for a fully-connected neural  networks, you can found it
+[here](https://github.com/cthorey/CS231).

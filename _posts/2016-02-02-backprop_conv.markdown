@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Backpropagation through a convolutional layer
+title: Note on the implementation of a convolutional neural networks.
 date: 2016-02-02T09:05:36+01:00
 published: true
 ---
@@ -9,39 +9,47 @@ This post is a follow-up on  the second assignment proposed as part of
 the                 Stanford                  CS                 class
 [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.github.io/).
 
-The  last  part  of  this  assignement  is  the  implementation  of  a
+The last  part of the assignement  deals with the implementation  of a
 convolutional neural  network.  Among  other things, this  implies the
-computation of  the gradient from the  loss back to the  input through
-convolutional layers.
+implementation of forward and  backward passes for convolutional layers,
+pooling layers, batch normalizations and other non-linearities.
 
 Instead of writing everything on  papers and, undoubtedly, lost myself
-in the indices, I decided to write the derivation in this post. 
+in the jungle of indices, I  decided to document my derivation in this
+post.
 
 ## Convolutional layer
 
-I am going to follow the notation of the assignment 
+Convolutional layers are the building  blocks of conv-net (Isn't their
+name  coming  from  them  ;)).  They  basically  convolve  their  input
+(images, text, ...)  with learnable filters to extract  what are called
+**activation maps**. 
 
-{% highlight python %}
-- N, C, H, W = x.shape
-- F, C, HH, WW = w.shape
-- N, F, Hh, Hw = dout.shape
-- S = conv_param['stride']
-{% endhighlight %}
+I am  going to follow the  notation of the assignment.  In particular,
+the shapes of the different vectors are as follows
 
-In addition, a bunch of indices will be used in the derivation. Unless
+- Input: $x$ ($N$, $C$, $H$, $W$)
+- Weight parameter: $w$ ($F$, $C$, $HH$, $WW$)
+- Output: $y$ ($N$,$F$, $Hh$, $Hw$)
+- stride: $S$
+- padding: $P$
+
+In addition, many indices are going to come out. Unless
 differently specifies, I'll use the following
 
 - $n$ for the different images
-- $f$ for the different filter
-- $c$ for the different channel
-- $f,k$ for the spatial ouput
+- $f$ for the different filters
+- $c$ for the different channels
+- $f,k$ for the spatial ouputs
 
 ### Forward pass
 
 The first step  is the implementation of the forward  pass. Instead of
-jumping into it, let's first look at  an example; an input $X$ of size
-$H=W=5$ convolve  with a  filter of size  $HH=WW=3$ with  stride $S=2$
-with  zero padding  ($P=0$). 
+jumping into it, let's first look at an example to see what it does.
+
+We  are going  to consider  the convolution  of an  input $x$  of size
+$H=W=5$ with  a filter of size  $HH=WW=3$ with stride $S=2$  and zero
+padding $P=0$.
 
 Graphically, $x$ looks like
 
@@ -76,9 +84,11 @@ $y$ is a vector of size $$Hh=Hw=2$$ as $Hh$ is given by
 
 $$ Hh = 1 + (H + 2P - HH) / S.$$
 
-First,  let's look  specically  at $y_{11}$.   During the  convolution
-process, this term  resumes to the multiplication  element-wise of the
-lower right part of $x$ with the filter. Mathematically, it reads
+During the convolution  process, the filter is convolved  to the input
+in  a  way that  is  defined  by the  stride  and  produces its  proper
+activation   map  $y$.    For  instance,   $y_{11}$  resumes   to  the
+multiplication   element-wise   of   the  lower   right   part   (size
+$$3\times3$$) of $x$ with the filter. Mathematically, it reads
 
 $$
 \begin{eqnarray}
@@ -88,11 +98,10 @@ y_{11} &=& x_{22}w_{00}+x_{23}w_{01}+...+x_{43}w_{21}+w_{44}w_{22} \\
 $$
 
 where the beginning  of the sum is  given by the index  of the element
-times the stride $S$, and the size of  the sum is given by the size of
-the filter.
+times the stride $S$, and the size of  the sums are given by the size of
+their respective filter dimension ($HH$ or $WW$).
 
-Therefore, generalizing from this example, we see that, given a stride
-$S$, the output reads
+Generalizing from this example, we see that the output reads
 
 $$
 y_{kl}=  \sum_{p=p_0}^{p=p_0+\Delta   p}\sum_{q=q_0}^{q=q_0+\Delta  q}
@@ -111,7 +120,9 @@ q_0 &=& Sl\\
 $$
 
 and $x^{pad}$  is the input padded  with the adequate number  of zeros
-(given by  $P$).  With  $N$ images,  $F$ filters  and $C$  channels, the
+(given by $P$).
+
+With  $N$ images,  $F$ filters  and $C$  channels, the
 example  above  easily  generalized  and  the  forward  pass  for  the
 convolutional layer reads
 
@@ -596,8 +607,23 @@ $$
 &=&\frac{d\mathcal{L}}{dy_{n',c',k',l'}}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}-\frac{1}{NHW}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\gamma_c'\left(\sigma_c'^2+\epsilon\right)^{-1/2}\\
 &-&\gamma_c'\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-3/2}\frac{1}{NHW}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\\
 &=&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(NHW\frac{d\mathcal{L}}{dy_{n',c',k',l'}}
-+\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\right)\\
+-\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\right)\\
 &-&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-1}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\right)\\
 \end{eqnarray}
 $$
 
+In python
+
+{% highlight python %}
+gamma = gamma.reshape(1, C, 1, 1)
+beta = beta.reshape(1, C, 1, 1)
+
+dbeta = np.sum(dout, axis=(0, 2, 3))
+dgamma = np.sum(dout * xhat, axis=(0, 2, 3))
+
+Nt = N * H * W
+dx = (1. / Nt) * gamma * (var + eps)**(-1. / 2.) * (Nt * dout
+        - np.sum(dout, axis=(0, 2, 3)).reshape(1, C, 1, 1)
+        - (x -  mu) * (var  + eps)**(-1.0) *  np.sum(dout * (x  - mu),axis=(0, 2, 3)).reshape(1, C, 1, 1)) 
+{% endhighlight %}
+         
