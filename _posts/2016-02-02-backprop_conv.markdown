@@ -5,6 +5,7 @@ date: 2016-02-02T09:05:36+01:00
 published: true
 ---
 
+
 This post is a follow-up on  the second assignment proposed as part of
 the                 Stanford                  CS                 class
 [CS231n: Convolutional Neural Networks for Visual Recognition](http://cs231n.github.io/).
@@ -12,7 +13,7 @@ the                 Stanford                  CS                 class
 The last  part of the assignement  deals with the implementation  of a
 convolutional neural  network.  Among  other things, this  implies the
 implementation of forward and  backward passes for convolutional layers,
-pooling layers, batch normalizations and other non-linearities.
+pooling layers, spatial-batch normalisations and other non-linearities.
 
 Instead of writing everything on  papers and, undoubtedly, lost myself
 in the jungle of indices, I  decided to document my derivation in this
@@ -20,27 +21,26 @@ post.
 
 ## Convolutional layer
 
-Convolutional layers are the building  blocks of conv-net (Isn't their
-name  coming  from  them  ;)).  They  basically  convolve  their  input
-(images, text, ...)  with learnable filters to extract  what are called
-**activation maps**. 
+Convolutional  layers  are  the  building blocks  of  conv-net.   They
+convolve  their inputs  with  learnable filters  to  extract what  are
+called **activation maps**.
 
-I am  going to follow the  notation of the assignment.  In particular,
-the shapes of the different vectors are as follows
+### Notation
 
-- Input: $x$ ($N$, $C$, $H$, $W$)
-- Weight parameter: $w$ ($F$, $C$, $HH$, $WW$)
-- Output: $y$ ($N$,$F$, $Hh$, $Hw$)
-- stride: $S$
-- padding: $P$
+I am going to follow the notation of the assignment.  
 
-In addition, many indices are going to come out. Unless
-differently specifies, I'll use the following
+In particular,
+
+- Input $x$ ($N$, $C$, $H$, $W$)
+- Weights $w$ ($F$, $C$, $HH$, $WW$)
+- Output $y$ ($N$,$F$, $Hh$, $Hw$)
+
+and the indices, unless differently specified, are
 
 - $n$ for the different images
 - $f$ for the different filters
 - $c$ for the different channels
-- $f,k$ for the spatial ouputs
+- $f,k$ for the spatial outputs
 
 ### Forward pass
 
@@ -80,7 +80,8 @@ x =
 $$
 
 and the bias  is just $b$ as  we consider only one  filter. The output
-$y$ is a vector of size $$Hh=Hw=2$$ as $Hh$ is given by
+$y$ is a vector  of size $$Hh=Hw=2$$ as $Hh$ (and  $Hw$ here) is given
+by
 
 $$ Hh = 1 + (H + 2P - HH) / S.$$
 
@@ -99,9 +100,9 @@ $$
 
 where the beginning  of the sum is  given by the index  of the element
 times the stride $S$, and the size of  the sums are given by the size of
-their respective filter dimension ($HH$ or $WW$).
+their respective filter dimensions ($HH$ or $WW$).
 
-Generalizing from this example, we see that the output reads
+Generalising from this example, we see that the output reads
 
 $$
 y_{kl}=  \sum_{p=p_0}^{p=p_0+\Delta   p}\sum_{q=q_0}^{q=q_0+\Delta  q}
@@ -123,7 +124,7 @@ and $x^{pad}$  is the input padded  with the adequate number  of zeros
 (given by $P$).
 
 With  $N$ images,  $F$ filters  and $C$  channels, the
-example  above  easily  generalized  and  the  forward  pass  for  the
+example  above  easily  generalised  and  the  forward  pass  for  the
 convolutional layer reads
 
 $$
@@ -136,14 +137,16 @@ x^{pad}_{n,c,p+p_0,q+q_0}w_{f,c,p,q}+b_f\\
 \end{eqnarray}
 $$
 
-which  nicely translates  mathematically the  fact that  to obtain  the
-output  at a  given position  $(n,f,k,l)$, select  the subpart  of the
-image of  size $$(HH,WW)$$, multiply it  by the filter and  sum all the
-resulting terms, i.e. the convolution!
+which  nicely translates  mathematically that  to obtain  the specific
+value indexed  by $k,l$ in  the $f$ activation  map for an  input $n$,
+select the  corresponding subpart  of the  input of  size $$(HH,WW)$$,
+multiply  it by  the  filter  $f$ and  sum  all  the resulting  terms,
+i.e. the convolution!
 
 In python, it looks like
 
 {% highlight python %}
+x_pad = np.pad(x, ((0,), (0,), (P,), (P,)), 'constant')
 out = np.zeros((N, F, Hh, Hw))
 for n in range(N):  # First, iterate over all the images
     for f in range(F):  # Second, iterate over all the kernels
@@ -151,6 +154,7 @@ for n in range(N):  # First, iterate over all the images
             for l in range(Hw):
                 out[n, f, k, l] = np.sum(x_pad[n, :, k * S:k * S + HH, l * S:l * S + WW] * w[f, :]) + b[f]
 {% endhighlight %}
+
 
 ### Backward pass
 
@@ -315,7 +319,7 @@ $$
 \end{eqnarray}
 $$
 
-Hence, the gradient of the loss with respect to the inputs finnally reads
+Hence, the gradient of the loss with respect to the inputs finally reads
 
 $$
 \begin{eqnarray}
@@ -326,7 +330,7 @@ $$
 \end{eqnarray}
 $$
 
-which  in  python can  be  written  with  a  nice intrication  of  $9$ loops ;)
+which  in  python can  be  written  with $9$ beautiful loops ;)
 
 {% highlight python %}
  # For dx : Size (N,C,H,W)
@@ -347,7 +351,7 @@ for nprime in range(N):
 
 {% endhighlight %}
 
-Though  inneficient,   this  implementation   has  the   advantage  of
+Though  inefficient,   this  implementation   has  the   advantage  of
 translating  point  by  point  the  formula.  A  may  be  more  clever
 implementation could look like
 
@@ -368,13 +372,13 @@ for nprime in range(N):
                         w_masked = np.sum(w[f, :, :, :] * mask1 * mask2, axis=(1, 2))
                         dx[nprime, :, i, j] += dout[nprime, f, k, l] * w_masked
 {% endhighlight %}
-which somewhat still very inneficient ;) If anyone has any idea on how
+which is somewhat still very inefficient ;) If anyone has any idea on how
 to remove the **i** and **j** loops, please tell me !
 
 
 ## Pooling layer
 
-A  pooling layer  reduce the  spatial  dimension of  an imput  without
+A  pooling layer  reduces the  spatial  dimension of  its input  without
 affecting its depth.
 
 Basically, if  a given input $x$  has a size ($N,C,H,W$),  then the output
@@ -383,7 +387,7 @@ will have a size ($N,C,H_1,W_1$) where $H_1$ and $W_1$ are given by
 $$
 \begin{eqnarray}
 H_1 &=& (H-H_p)/S+1 \\
-W_1 &=& (W-W_p)/S+1 \\
+W_1 &=& (W-W_w)/S+1 \\
 \end{eqnarray}
 $$
 
@@ -459,7 +463,7 @@ $$
 $$
 
 and we  are done! Indeed,  in python, find the  indices of the  max is
-fairly easy and the leasy compute of the gradient reads
+fairly easy and the lazy compute of the gradient reads
 
 {% highlight python %}
 dx = np.zeros((N, C, H, W))
@@ -545,70 +549,51 @@ In   the  backward   pass,  we   have  to   find  an   expression  for
 $$\frac{d\mathcal{L}}{d\gamma},
 \frac{d\mathcal{L}}{d\beta},\frac{d\mathcal{L}}{dx}$$    where    each
 gradient with respect to a quantity contains a vector of size equal to
-the quantity itself.
+the quantity itself. 
 
-### Gradient of the loss with respect to $\beta$
+I spent already  an entire post explaining how to  derive the gradient
+of  the  loss   with  respect  to  the  centred  inputs   in  a  previous
+[post](http://cthorey.github.io/backpropagation/) and I  just drop the
+generalized version for the conv-net application here.
+
+#### Gradient of the loss with respect to $\beta$
 
 $$
 \begin{eqnarray}
 \frac{d\mathcal{L}}{d\beta_{c'}}                                   &=&
 \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\beta_{c'}}\\
-&=& \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\delta_{c,c'}\\
 &=& \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\\
 \end{eqnarray}
 $$
 
-### Gradient of the loss with respect to $\gamma$
+{% highlight python %}
+dbeta = np.sum(dout, axis=(0, 2, 3))
+{% endhighlight %}
+
+#### Gradient of the loss with respect to $\gamma$
 
 $$
 \begin{eqnarray}
 \frac{d\mathcal{L}}{d\gamma_{c'}}                                   &=&
 \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\gamma_{c'}}\\
-&=& \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\delta_{c,c'}\hat{x}_{n,c,k,l}\\
 &=& \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\hat{x}_{n,c',k,l}\\
 \end{eqnarray}
 $$
 
-### Gradient of the loss with respect to the input $x$
+{% highlight python %}
+dgamma = np.sum(dout * xhat, axis=(0, 2, 3))
+{% endhighlight %}
+
+
+#### Gradient of the loss with respect to the input $x$
 
 $$
 \begin{eqnarray}
 \frac{d\mathcal{L}}{dx_{n',c',k',l'}}                                   &=&
 \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',k',l'}}\\
-&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\hat{x}_{n,c,k,l}}\frac{d\hat{x}_{n,c,k,l}}{dx_{n',c',k',l'}}
-\end{eqnarray}
-$$
-
-
-$$
-\begin{eqnarray}
-\frac{d\hat{x}_{n,c,k,l}}{dx_{n',c',k',l'}}                          &=&
-\left(\delta_{n,n'}\delta_{c,c'}\delta_{k,k'}\delta_{l,l'}-\frac{\delta_{c,c'}}{NHW}\right)\left(\sigma_c^2+\epsilon\right)^{-1/2}\\
-&-&\frac{1}{2}\frac{d\sigma_c^2}{dx_{n',c',k',l'}}\left(\sigma_c^2+\epsilon\right)^{-3/2}\left(x_{n,c,k,l}-\mu_c\right)
-\end{eqnarray}
-$$
-
-As
-
-$$
-\begin{eqnarray}
-\frac{d\sigma_c^2}{d x_{n',c',k',l'}} = \frac{2}{NHW}\left(x_{n',c,k',l'}-\mu_{c}\right)\delta_{c,c'}
-\end{eqnarray}
-$$
-
-then
-
-$$
-\begin{eqnarray}
-\frac{d\mathcal{L}}{dx_{n',c',k',l'}}
-&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\hat{x}_{n,c,k,l}}\frac{d\hat{x}_{n,c,k,l}}{dx_{n',c',k',l'}}\\
-&=&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\gamma_c\delta_{c,c'}\left( \left(\delta_{n,n'}\delta_{c,c'}\delta_{k,k'}\delta_{l,l'}-\frac{\delta_{c,c'}}{NHW}\right)\left(\sigma_c^2+\epsilon\right)^{-1/2}\right)\\
-&-&\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\gamma_c\delta_{c,c'}\frac{1}{NHW}\left(x_{n',c,k',l'}-\mu_{c}\right)\delta_{c,c'}\left(\sigma_c^2+\epsilon\right)^{-3/2}\left(x_{n,c,k,l}-\mu_c\right)\\
-&=&\frac{d\mathcal{L}}{dy_{n',c',k',l'}}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}-\frac{1}{NHW}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\gamma_c'\left(\sigma_c'^2+\epsilon\right)^{-1/2}\\
-&-&\gamma_c'\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-3/2}\frac{1}{NHW}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\\
 &=&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(NHW\frac{d\mathcal{L}}{dy_{n',c',k',l'}}
 -\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\right)\\
-&-&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-1}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\right)\\
+&-&\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-1}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\right)
 \end{eqnarray}
 $$
 
@@ -617,13 +602,28 @@ In python
 {% highlight python %}
 gamma = gamma.reshape(1, C, 1, 1)
 beta = beta.reshape(1, C, 1, 1)
-
-dbeta = np.sum(dout, axis=(0, 2, 3))
-dgamma = np.sum(dout * xhat, axis=(0, 2, 3))
-
 Nt = N * H * W
 dx = (1. / Nt) * gamma * (var + eps)**(-1. / 2.) * (Nt * dout
         - np.sum(dout, axis=(0, 2, 3)).reshape(1, C, 1, 1)
         - (x -  mu) * (var  + eps)**(-1.0) *  np.sum(dout * (x  - mu),axis=(0, 2, 3)).reshape(1, C, 1, 1)) 
 {% endhighlight %}
          
+## Conclusion
+
+This post focus  on the derivation of the forward  and backward passes
+for different building blocks of convolutional neural networks. Namely
+
+- A convolutional layer
+- A pooling layer
+- Spatial-batch normalization 
+
+I also  document the  corresponding code in  **python** for  those who
+want to implement their own convolutional neural networks.
+
+To finish,  I'd like to  thank all the  team from the  CS231 Standford
+class  who do  a fantastic  work in  vulgarising the  knowledge behind
+neural networks. 
+
+For those  who want  to take  a look  to my  full implementation  of a
+convolutional neural networks, you can found it
+[here](https://github.com/cthorey/CS231).
