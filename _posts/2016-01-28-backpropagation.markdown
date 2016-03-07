@@ -12,19 +12,19 @@ particular,  I spent  a few  hours  deriving a  correct expression  to
 backpropagate          the           batchnorm          regularization
 ([Assigment 2 - Batch Normalization](http://cs231n.github.io/assignments2016/assignment2/))
 . While this post is mainly for me not to forget about what insights I
-have gained  in solving this  problem, I hope  it could be  usefull to
+have gained  in solving this  problem, I hope  it could be  useful to
 others that are struggling with back propagation.
 
 ## Batch normalization
 
-Batch    normalisation    is    a   recent    idea    introduced    by
+Batch    normalization    is    a   recent    idea    introduced    by
 [Ioffe  et  al,  2015](http://arxiv.org/abs/1502.03167)  to  ease  the
 training of large  neural networks. The idea behind it  is that neural
 networks  tend  to   learn  better  when  their   input  features  are
 uncorrelated with zero mean and unit  variance. As each layer within a
 neural network  see the activations  of the previous layer  as inputs,
-the same idea could be apply  to each layer.  Batch normalisation does
-exactly that by normalising the  activations over the current batch in
+the same idea could be apply  to each layer.  Batch normalization does
+exactly that by normalizing the  activations over the current batch in
 each hidden layer, generally right before the non-linearity.
 
 To be more specific, for a given input batch $x$ of size $(N,D)$ going
@@ -39,7 +39,7 @@ looks like
     where  $h$ contains  the  results of  the linear  transformation
     (size $(N,H)$).
     
-2. Batch normalisation transform
+2. Batch normalization transform
 
     $$y = \gamma \hat{h}+\beta$$
 
@@ -72,10 +72,10 @@ looks like
     which now  see a zero mean  and unit variance input  and where $a$
     contains  the activations  of size  $(N,H)$.  Also  note that,  as
     $\gamma$  and $\beta$  are learnable  parameters, the  network can
-    unlearn the batch normalisation transformation. In particular, the
+    unlearn the batch normalization transformation. In particular, the
     claim that  the non-linearity sees  a zero mean and  unit variance
     input is only certainly true in the first forward call as $\gamma$
-    and $\beta$ are usually initialised to $1$ and $0$ respectively.
+    and $\beta$ are usually initialized to $1$ and $0$ respectively.
 
 ## Derivation
 
@@ -98,7 +98,7 @@ are two strategies to implement it.
    backprop through all intermediate values
 2.  Work out the derivatives on paper. 
 
-The 2nd step made me realise  I did not fully understand backprogation
+The 2nd step made me realize  I did not fully understand backprogation
 before this  assignment. Backpropation, an abbreviation  for "backward
 propagation of  errors", calculates  the gradient  of a  loss function
 $\mathcal{L}$ with respect to all the  parameters of the network. In our case,
@@ -188,7 +188,7 @@ get  this  one,  you  are  good  to  backprop  whatever  function  you
 encounter so make sure you understand it before going further.
 
 This is just the case of translation though. What if we consider the real
-batch normalisation transformation ?
+batch normalization transformation ?
 
 In  that  case,  the  transformation  considers  both  translation  and
 rescaling and reads
@@ -243,7 +243,7 @@ $$
 $$
 
 The gradients of the loss with respect to $\gamma$ and $\beta$ is much
-more straighforward and should not  pose any problem if you understood
+more straightforward and should not  pose any problem if you understood
 the previous derivation. They read
 
 $$
@@ -282,14 +282,14 @@ and with that, you good to go !
 In this  post, I focus  on deriving  an analytical expression  for the
 backward  pass to  implement batch-norm  in a  fully connected  neural
 networks. Indeed, trying  to get an expression by just  looking at the
-centred inputs  and trying to  match the dimensions to  get $d\gamma$,
+centered inputs  and trying to  match the dimensions to  get $d\gamma$,
 $d\beta$ and $dh$ simply do not  work this time.  In contrast, working
 the derivative on papers nicely leads to the solution ;)
 
-To finish,  I'd like to  thank all the  team from the  CS231 Standford
-class  who do  a fantastic  work in  vulgarising the  knowledge behind
-neural networks. 
+To finish,  I'd like to  thank all the  team from the  CS231 Stanford
+class  who do  a fantastic  work in  vulgarizing the  knowledge behind
+neural networks.
 
 For those who want  to take a look to my  full implementation of batch
-normalisation for a fully-connected neural  networks, you can found it
+normalization for a fully-connected neural  networks, you can found it
 [here](https://github.com/cthorey/CS231).
