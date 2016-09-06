@@ -2,8 +2,48 @@
 layout: post
 title: Implementation of the grad and hess for brier score?
 date: 2016-06-30T20:35:04+01:00
-published: true
+published: false
 ---
+
+# Loss function Kulbach Lieber divergence
+
+The loss function looks like
+
+$$\
+\begin{eqnarray}
+\mathcal{L}              &=&               -\sum_i              \sum_j
+y_{ij}\log{\left(\sigma(\hat{y}_{ij})\right)}\\
+&=&-\sum_i              \sum_j
+y_{ij}\left(\hat{y}_{ij}- \log{\left(\sum_{n} e^{\hat{y}_{in}}\right)}\right)\\
+\end{eqnarray}
+$$
+
+Then
+
+$$      \begin{eqnarray}     \frac{\partial      \mathcal{L}}{\partial
+\hat{y}_{kl}}&=&-\sum_i   \sum_j   y_{ij}\left(\delta_{ik}\delta_{jl}-
+\frac{\partial}{\partial        \hat{y}_{kl}}\left(\log{\left(\sum_{n}
+e^{\hat{y}_{in}}\right)}\right)\right)\\       &=&-\sum_i       \sum_j
+y_{ij}\left(\delta_{ik}\delta_{jl}- \frac{\sum_{n}\delta_{ik}\delta_{nl}e^{\hat{y}_{in}}}{\sum_{n}
+e^{\hat{y}_{in}}}\right)\\
+&=&-\sum_i       \sum_j
+y_{ij}\left(\delta_{ik}\delta_{jl}- \frac{\delta_{ik}e^{\hat{y}_{il}}}{\sum_{n}
+e^{\hat{y}_{in}}}\right)\\
+&=&-\sum_i \sum_j y_{ij}\delta_{ik}\delta_{jl}+\sum_i \sum_j y_{ij}
+\delta_{ik}\frac{e^{\hat{y}_{il}}}{\sum_{n}
+e^{\hat{y}_{in}}}\\
+&=&-y_{kl}+ \sigma_{kl}\sum_j y_{kj}
+\end{eqnarray} 
+$$
+
+and the hessian
+
+
+$$ 
+\begin{eqnarray} 
+\frac{\partial^2  \mathcal{L}}{\partial   \hat{y}_{kl}^2}&=&\sigma(\hat{y}_{kj})\left(1-\sigma(\hat{y}_{kl})\right)\sum_j y_{kj}
+\end{eqnarray}
+$$
 
 # Loss function for the Brier score
 
@@ -141,7 +181,7 @@ $$
 -                                                               \sum_j
   \sigma(\hat{y}_{kj})\left(\sigma(\hat{y}_{kj})-y_{kj}\right)w_{kj}\right)\\
   &+&     2\sigma(\hat{y}_{kl})w_{kl}\sigma(\hat{y}_{kl})\left(1-\sigma(\hat{y}_{kl})\right)\\
-    &-&      \sigma(\hat{y}_{kl})\left(w_{kl}\left(2\sigma(\hat{y}_{kl})-y_{kl}\right)
-  -\sum_j w_{kj} \sigma(\hat{y}_{kl})\left(2\sigma(\hat{y}_{kj})-y_{kj}\right) \right)
+    &-&     2\sigma(\hat{y}_{kl}) \sigma(\hat{y}_{kl})\left(w_{kl}\left(2\sigma(\hat{y}_{kl})-y_{kl}\right)
+  -\sigma(\hat{y}_{kl})\sum_j w_{kj} \left(2\sigma(\hat{y}_{kj})-y_{kj}\right) \right)
 \end{eqnarray}
 $$
