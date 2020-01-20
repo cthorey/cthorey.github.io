@@ -6,7 +6,7 @@ permalink: /publication/
 
 -   **Thorey, C.**, Michaut, C., 2015. Elastic-plated gravity current
     with temperature-dependent viscosity. Journal of Fluid Mechanics.
-    (in press)
+    doi:10.1017/jfm.2016.538
 
 -   [**Thorey, C.**, Michaut, C., Wieczorek, M.A., 2015. Gravitational
     signatures of lunar floor-fractured craters. Earth and Planetary
