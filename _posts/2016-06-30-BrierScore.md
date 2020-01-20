@@ -1,9 +1,11 @@
 ---
 layout: post
-title: Implementation of the grad and hess for brier score?
+title: Analytical gradient/hessian derivation of some common objectives
 date: 2016-06-30T20:35:04+01:00
-published: false
+published: true
 ---
+
+This post contains the derivation of the gradient and the hessian for the cross-entropy loss as well as the Brier score. 
 
 # Loss function Kulbach Lieber divergence
 
