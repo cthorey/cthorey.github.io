@@ -54,6 +54,12 @@ baseurl: ""
 #
 
 markdown: kramdown
+kramdown:
+  math_engine: katex
+  input: GFM
+  auto_ids: true
+  hard_wrap: false
+  syntax_highlighter: rouge
 highlighter: rouge
 permalink: /:title/
 
