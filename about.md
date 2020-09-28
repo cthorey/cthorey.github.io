@@ -20,7 +20,7 @@ natural  language  processing  to  help develop  great  products  with
 data. If you happen to look for somebody like me, feel free to contact
 me directly ;) 
 
-Here is my [CV](http://attachments.angel.co/624479-b87b39820dc3db3816e38ed1e986d2e0.pdf?1473158973).
+Here is my [CV](https://cthorey.github.io/online-cv/).
 
 
 # Main project 
