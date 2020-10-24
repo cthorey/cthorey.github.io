@@ -1,4 +1,6 @@
 _site
+.tweet-cache/
+_bibliography/auto/
 
 *.#*
 .DS_Store
