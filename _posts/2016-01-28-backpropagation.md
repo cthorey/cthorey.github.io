@@ -27,32 +27,32 @@ the same idea could be apply  to each layer.  Batch normalization does
 exactly that by normalizing the  activations over the current batch in
 each hidden layer, generally right before the non-linearity.
 
-To be more specific, for a given input batch $x$ of size $(N,D)$ going
-through a hidden layer of size $H$, some weights $w$ of size $(D,H)$ and
-a bias $b$  of size $(H)$, the common layer  structure with batch norm
+To be more specific, for a given input batch $$x$$ of size $$(N,D)$$ going
+through a hidden layer of size $$H$$, some weights $$w$$ of size $$(D,H)$$ and
+a bias $$b$$  of size $$(H)$$, the common layer  structure with batch norm
 looks like
 
 1. Affine transformation
 
     $$h = XW+b$$
 
-    where  $h$ contains  the  results of  the linear  transformation
-    (size $(N,H)$).
+    where  $$h$$ contains  the  results of  the linear  transformation
+    (size $$(N,H)$$).
     
 2. Batch normalization transform
 
     $$y = \gamma \hat{h}+\beta$$
 
-    where $\gamma$ and $\beta$ are learnable parameters and
+    where $$\gamma$$ and $$\beta$$ are learnable parameters and
 
     $$ \hat{h}= (h-\mu)(\sigma^2+\epsilon)^{-1/2}$$
 
-    contains  the zero  mean and  unit variance  version of  $h$ (size
-    $(N,H)$).  Indeed, the parameter  $\mu$ ($H$) and $\sigma^2$ ($H$)
+    contains  the zero  mean and  unit variance  version of  $$h$$ (size
+    $$(N,H)$$).  Indeed, the parameter  $$\mu$$ ($$H$$) and $$\sigma^2$$ ($$H$$)
     are  the  respective  average   and  standard  deviation  of  each
-    activation over the full batch (of size $N$). Note that, this expression
-    implicitly assume broadcasting as $h$  is of size $(N,H)$ and both
-    $\mu$  and $\sigma$  have  size  equal to  $(H)$.  A more  correct
+    activation over the full batch (of size $$N$$). Note that, this expression
+    implicitly assume broadcasting as $$h$$  is of size $$(N,H)$$ and both
+    $$\mu$$  and $$\sigma$$  have  size  equal to  $$(H)$$.  A more  correct
     expression would be
 
     $$\hat{h_{kl}}= (h_{kl}-\mu_l)(\sigma_l^2+\epsilon)^{-1/2}$$
@@ -63,19 +63,19 @@ looks like
 
     $$ \sigma^2_l = \frac{1}{N}\sum_p (h_{pl}-\mu_l)^2.$$
 
-    with $k=1,...,N$ and $l=1,...,H$.
+    with $$k=1,...,N$$ and $$l=1,...,H$$.
 
 3. Non-linearity activation, say ReLu for our example
 
     $$a = ReLu(y)$$
 
-    which now  see a zero mean  and unit variance input  and where $a$
-    contains  the activations  of size  $(N,H)$.  Also  note that,  as
-    $\gamma$  and $\beta$  are learnable  parameters, the  network can
+    which now  see a zero mean  and unit variance input  and where $$a$$
+    contains  the activations  of size  $$(N,H)$$.  Also  note that,  as
+    $$\gamma$$  and $$\beta$$  are learnable  parameters, the  network can
     unlearn the batch normalization transformation. In particular, the
     claim that  the non-linearity sees  a zero mean and  unit variance
-    input is only certainly true in the first forward call as $\gamma$
-    and $\beta$ are usually initialized to $1$ and $0$ respectively.
+    input is only certainly true in the first forward call as $$\gamma$$
+    and $$\beta$$ are usually initialized to $$1$$ and $$0$$ respectively.
 
 ## Derivation
 
@@ -101,16 +101,16 @@ are two strategies to implement it.
 The 2nd step made me realize  I did not fully understand backprogation
 before this  assignment. Backpropation, an abbreviation  for "backward
 propagation of  errors", calculates  the gradient  of a  loss function
-$\mathcal{L}$ with respect to all the  parameters of the network. In our case,
-we need  to calculate the  gradient with respect to  $\gamma$, $\beta$
-and the input $h$.
+$$\mathcal{L}$$ with respect to all the  parameters of the network. In our case,
+we need  to calculate the  gradient with respect to  $$\gamma$$, $$\beta$$
+and the input $$h$$.
 
 Mathematically,     this     reads     $$\frac{d\mathcal{L}}{d\gamma},
 \frac{d\mathcal{L}}{d\beta},\frac{d\mathcal{L}}{dh}$$    where    each
 gradient with respect to a quantity contains a vector of size equal to
 the quantity  itself. For me,  the aha-moment  came when I  decided to
 properly  write the  expression for  these gradients.  For instance,  the
-gradient with respect to the input $h$ literally reads
+gradient with respect to the input $$h$$ literally reads
 
 $$
 \begin{equation}
@@ -154,7 +154,7 @@ $$
 $$
 
 which  we  can  also  chain  by  the  gradient  with  respect  to  the
-centred input $\hat{h}_{kl}$ to break down the problem a little more
+centred input $$\hat{h}_{kl}$$ to break down the problem a little more
 
 $$
 \begin{eqnarray}
@@ -173,17 +173,17 @@ a translation, we have
 
 $$ \hat{h_{kl}} = h_{kl}- \mu_l$$
 
-where the expression of $\mu_l$ is given above. In that case, we have
+where the expression of $$\mu_l$$ is given above. In that case, we have
 
 $$
 \frac{d\hat{h}_{kl}}{d h_{ij}} = \delta_{i,k}\delta_{j,l}-\frac{1}{N}\delta_{j,l}.
 $$
 
-where  $$\delta_{i,j}=1$$ if  $i=j$  and $0$  otherwise. Therefore,  the
-first term is $1$ only if $k=i$ and $l=j$ and the second term is $1/N$
-only when $l=j$. Indeed, the gradient of $\hat{h}$ with respect to the
-$j$ input of the $i$ batch, which is precisely what the left hand term
-means, is non-zero only for terms in the $j$ dimension. I think if you
+where  $$\delta_{i,j}=1$$ if  $$i=j$$  and $$0$$  otherwise. Therefore,  the
+first term is $$1$$ only if $$k=i$$ and $$l=j$$ and the second term is $$1/N$$
+only when $$l=j$$. Indeed, the gradient of $$\hat{h}$$ with respect to the
+$$j$$ input of the $$i$$ batch, which is precisely what the left hand term
+means, is non-zero only for terms in the $$j$$ dimension. I think if you
 get  this  one,  you  are  good  to  backprop  whatever  function  you
 encounter so make sure you understand it before going further.
 
@@ -208,8 +208,8 @@ where
 
 $$\sigma_l^2 = \frac{1}{N}\sum_p \left(h_{pl}-\mu_l\right)^2.$$
 
-As the gradient of the standard deviation $\sigma_l^2$ with respect to
-the input $h_{ij}$ reads
+As the gradient of the standard deviation $$\sigma_l^2$$ with respect to
+the input $$h_{ij}$$ reads
 
 $$
 \begin{eqnarray}
@@ -230,7 +230,7 @@ $$
 $$
 
 Wrapping everything together, we finally find that the gradient of the
-loss function $\mathcal{L}$ with respect to the layer inputs finally reads
+loss function $$\mathcal{L}$$ with respect to the layer inputs finally reads
 
 $$
 \begin{eqnarray}
@@ -242,7 +242,7 @@ $$
 \end{eqnarray}
 $$
 
-The gradients of the loss with respect to $\gamma$ and $\beta$ is much
+The gradients of the loss with respect to $$\gamma$$ and $$\beta$$ is much
 more straightforward and should not  pose any problem if you understood
 the previous derivation. They read
 
@@ -282,8 +282,8 @@ and with that, you good to go !
 In this  post, I focus  on deriving  an analytical expression  for the
 backward  pass to  implement batch-norm  in a  fully connected  neural
 networks. Indeed, trying  to get an expression by just  looking at the
-centered inputs  and trying to  match the dimensions to  get $d\gamma$,
-$d\beta$ and $dh$ simply do not  work this time.  In contrast, working
+centered inputs  and trying to  match the dimensions to  get $$d\gamma$$,
+$$d\beta$$ and $$dh$$ simply do not  work this time.  In contrast, working
 the derivative on papers nicely leads to the solution ;)
 
 To finish,  I'd like to  thank all the  team from the  CS231 Stanford
