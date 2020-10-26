@@ -2,6 +2,7 @@
 layout: post
 date: 2015-10-22 15:59:00-0400
 inline: true
+published: true
 ---
 
-A simple inline announcement.
+Succesfully defended my PhD ! :waxing_crescent_moon: :sparkles: 

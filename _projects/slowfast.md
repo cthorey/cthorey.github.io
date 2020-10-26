@@ -63,7 +63,9 @@ Here is a sample of three clogged vessels
     </div>
 </div>
 
-Using the resulting mosaic - I decided to just finetune a head on top of a resnet18 backbone. Using a weighted cross-entropy loss to take care of the unbalanced dataset, I manage to get an MCC~0.2 - not too bad but still far off the top of the leaderboard.
+Using the resulting mosaic - I decided to just finetune a head on top of a resnet18 backbone. Using a weighted cross-entropy loss to take care of the unbalanced dataset, I manage to get an MCC~20% - not too bad but still far off the top of the leaderboard.
+
+Code available [here](https://github.com/cthorey/clogloss)
 
 ## Introducing slowfast
 
