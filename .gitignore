@@ -1,13 +1,5 @@
 _site
-.tweet-cache/
-_bibliography/auto/
-
-*.#*
-.DS_Store
-.jekyll
-.bundle
 .sass-cache
-Gemfile
-Gemfile.lock
-node_modules
-package.json
+.jekyll-cache
+.jekyll-metadata
+vendor
