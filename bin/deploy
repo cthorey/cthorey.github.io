@@ -5,7 +5,7 @@
 # Parse cmd arguments
 
 SRC_BRANCH="newsite"
-DEPLOY_BRANCH="gh-pages"
+DEPLOY_BRANCH="live"
 
 USAGE_MSG="usage: deploy [-h|--help] [-u|--user] [-s|--src SRC_BRANCH] [-d|--deploy DEPLOY_BRANCH]"
 
@@ -78,7 +78,7 @@ fi
 git checkout -b $DEPLOY_BRANCH
 
 # Build site
-bundle exec jekyll build
+make build
 
 # Delete and move files
 find . -maxdepth 1 ! -name '_site' ! -name '.git' ! -name 'CNAME' ! -name '.gitignore' -exec rm -rf {} \;
