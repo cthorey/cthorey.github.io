@@ -2,7 +2,6 @@
 layout: page
 permalink: /publications/
 title: publications
-description: 
 years: [2016, 2015, 2013]
 nav: true
 ---
