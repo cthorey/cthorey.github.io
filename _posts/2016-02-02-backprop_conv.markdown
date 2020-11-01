@@ -31,27 +31,27 @@ I am going to follow the notation of the assignment.
 
 In particular,
 
-- Input $x$ ($N$, $C$, $H$, $W$)
-- Weights $w$ ($F$, $C$, $HH$, $WW$)
-- Output $y$ ($N$,$F$, $Hh$, $Hw$)
+- Input $$x$$ ($$N$$, $$C$$, $$H$$, $$W$$)
+- Weights $$w$$ ($$F$$, $$C$$, $$HH$$, $$WW$$)
+- Output $$y$$ ($$N$$,$$F$$, $$Hh$$, $$Hw$$)
 
 and the indices, unless differently specified, are
 
-- $n$ for the different images
-- $f$ for the different filters
-- $c$ for the different channels
-- $f,k$ for the spatial outputs
+- $$n$$ for the different images
+- $$f$$ for the different filters
+- $$c$$ for the different channels
+- $$f,k$$ for the spatial outputs
 
 ### Forward pass
 
 The first step  is the implementation of the forward  pass. Instead of
 jumping into it, let's first look at an example to see what it does.
 
-We  are going  to consider  the convolution  of an  input $x$  of size
-$H=W=5$ with  a filter of size  $HH=WW=3$ with stride $S=2$  and zero
-padding $P=0$.
+We  are going  to consider  the convolution  of an  input $$x$$  of size
+$$H=W=5$$ with  a filter of size  $$HH=WW=3$$ with stride $$S=2$$  and zero
+padding $$P=0$$.
 
-Graphically, $x$ looks like
+Graphically, $$x$$ looks like
 
 $$
 \begin{equation}
@@ -66,7 +66,7 @@ x =
 \end{equation}
 $$
 
-the filter $w$
+the filter $$w$$
 
 $$
 \begin{equation}
@@ -79,17 +79,17 @@ x =
 \end{equation}
 $$
 
-and the bias  is just $b$ as  we consider only one  filter. The output
-$y$ is a vector  of size $$Hh=Hw=2$$ as $Hh$ (and  $Hw$ here) is given
+and the bias  is just $$b$$ as  we consider only one  filter. The output
+$$y$$ is a vector  of size $$Hh=Hw=2$$ as $$Hh$$ (and  $$Hw$$ here) is given
 by
 
 $$ Hh = 1 + (H + 2P - HH) / S.$$
 
 During the convolution  process, the filter is convolved  to the input
 in  a  way that  is  defined  by the  stride  and  produces its  proper
-activation   map  $y$.    For  instance,   $y_{11}$  resumes   to  the
+activation   map  $$y$$.    For  instance,   $$y_{11}$$  resumes   to  the
 multiplication   element-wise   of   the  lower   right   part   (size
-$$3\times3$$) of $x$ with the filter. Mathematically, it reads
+$$3\times3$$) of $$x$$ with the filter. Mathematically, it reads
 
 $$
 \begin{eqnarray}
@@ -99,8 +99,8 @@ y_{11} &=& x_{22}w_{00}+x_{23}w_{01}+...+x_{43}w_{21}+w_{44}w_{22} \\
 $$
 
 where the beginning  of the sum is  given by the index  of the element
-times the stride $S$, and the size of  the sums are given by the size of
-their respective filter dimensions ($HH$ or $WW$).
+times the stride $$S$$, and the size of  the sums are given by the size of
+their respective filter dimensions ($$HH$$ or $$WW$$).
 
 Generalising from this example, we see that the output reads
 
@@ -120,10 +120,10 @@ q_0 &=& Sl\\
 \end{eqnarray}
 $$
 
-and $x^{pad}$  is the input padded  with the adequate number  of zeros
-(given by $P$).
+and $$x^{pad}$$  is the input padded  with the adequate number  of zeros
+(given by $$P$$).
 
-With  $N$ images,  $F$ filters  and $C$  channels, the
+With  $$N$$ images,  $$F$$ filters  and $$C$$  channels, the
 example  above  easily  generalised  and  the  forward  pass  for  the
 convolutional layer reads
 
@@ -138,9 +138,9 @@ x^{pad}_{n,c,p+p_0,q+q_0}w_{f,c,p,q}+b_f\\
 $$
 
 which  nicely translates  mathematically that  to obtain  the specific
-value indexed  by $k,l$ in  the $f$ activation  map for an  input $n$,
+value indexed  by $$k,l$$ in  the $$f$$ activation  map for an  input $$n$$,
 select the  corresponding subpart  of the  input of  size $$(HH,WW)$$,
-multiply  it by  the  filter  $f$ and  sum  all  the resulting  terms,
+multiply  it by  the  filter  $$f$$ and  sum  all  the resulting  terms,
 i.e. the convolution!
 
 In python, it looks like
@@ -168,8 +168,8 @@ $$\frac{d\mathcal{L}}{dy}$$                (see               previous
 #### Gradient with respect to the weights  $$\frac{d\mathcal{L}}{dw}$$
 
 The gradient of the loss with respect to the weights has the same size
-as  the  weights  themselves   ($F$,$C$,$HH$,$WW$).  Chaining  by  the
-gradient of the loss with respect to the outputs $y$, it reads
+as  the  weights  themselves   ($$F$$,$$C$$,$$HH$$,$$WW$$).  Chaining  by  the
+gradient of the loss with respect to the outputs $$y$$, it reads
 
 $$
 \begin{eqnarray}
@@ -177,8 +177,8 @@ $$
 \end{eqnarray}
 $$
 
-The expression  of $y_{n,f,k,l}$ is  derived above and  therefore, its
-derivative with respect to the weight $w$ reads
+The expression  of $$y_{n,f,k,l}$$ is  derived above and  therefore, its
+derivative with respect to the weight $$w$$ reads
 
 $$
 \begin{eqnarray}
@@ -216,8 +216,8 @@ for fprime in range(F):
 
 #### Gradient with respect to the bias $$\frac{d\mathcal{L}}{db}$$
 
-The gradient of the loss with respect to the bias is of size ($F$).  Chaining by the
-gradient of the loss with respect to the outputs $y$ and simplifying, it reads
+The gradient of the loss with respect to the bias is of size ($$F$$).  Chaining by the
+gradient of the loss with respect to the outputs $$y$$ and simplifying, it reads
 
 $$
 \begin{eqnarray}
@@ -242,7 +242,7 @@ for fprime in range(F):
 #### Gradient with respect to the input $$\frac{d\mathcal{L}}{dx}$$
 
 As above, we first  chain by the gradient of the  loss with respect to
-the output $y$, which gives
+the output $$y$$, which gives
 
 $$
 \begin{eqnarray}
@@ -259,10 +259,10 @@ $$
 \end{eqnarray}
 $$
 
-where we  have to handle  carefully the fact  that $y$ depends  on the
-padded version of $x^{pad}$ and not $x$ itself. In other words, we better first
-chain with the  gradient of $y$ with respect to  the padded version of
-$x^{pad}$ to get
+where we  have to handle  carefully the fact  that $$y$$ depends  on the
+padded version of $$x^{pad}$$ and not $$x$$ itself. In other words, we better first
+chain with the  gradient of $$y$$ with respect to  the padded version of
+$$x^{pad}$$ to get
 
 $$
 \begin{eqnarray}
@@ -271,8 +271,8 @@ $$
 \end{eqnarray}
 $$
 
-Let's first  look at the second  term, the gradient of  $x^{pad}$ with
-respect to $x$.  There is a simple relationship between  the two which
+Let's first  look at the second  term, the gradient of  $$x^{pad}$$ with
+respect to $$x$$.  There is a simple relationship between  the two which
 reads
 
 $$
@@ -330,7 +330,7 @@ $$
 \end{eqnarray}
 $$
 
-which  in  python can  be  written  with $9$ beautiful loops ;)
+which  in  python can  be  written  with $$9$$ beautiful loops ;)
 
 {% highlight python %}
  # For dx : Size (N,C,H,W)
@@ -381,8 +381,8 @@ to remove the **i** and **j** loops, please tell me !
 A  pooling layer  reduces the  spatial  dimension of  its input  without
 affecting its depth.
 
-Basically, if  a given input $x$  has a size ($N,C,H,W$),  then the output
-will have a size ($N,C,H_1,W_1$) where $H_1$ and $W_1$ are given by 
+Basically, if  a given input $$x$$  has a size ($$N,C,H,W$$),  then the output
+will have a size ($$N,C,H_1,W_1$$) where $$H_1$$ and $$W_1$$ are given by 
 
 $$
 \begin{eqnarray}
@@ -391,12 +391,12 @@ W_1 &=& (W-W_w)/S+1 \\
 \end{eqnarray}
 $$
 
-and  where  $H_p$,  $W_p$  and   $S$  are  three  hyperparameters  which
+and  where  $$H_p$$,  $$W_p$$  and   $$S$$  are  three  hyperparameters  which
 corresponds to
 
-- $H_p$ is the height of the pooling region
-- $H_w$ is the width of the pooling region
-- $S$ is the stride, the distance between two adjacent pooling region.
+- $$H_p$$ is the height of the pooling region
+- $$H_w$$ is the width of the pooling region
+- $$S$$ is the stride, the distance between two adjacent pooling region.
 
 ### Forward pass
 
@@ -435,7 +435,7 @@ for n in range(N):
 
 ### Backward pass
 
-The gradient of the loss with respect  to the input $x$ of the pooling
+The gradient of the loss with respect  to the input $$x$$ of the pooling
 layer writes
 
 $$
@@ -445,8 +445,8 @@ $$
 $$
 
 Let's look at  the second term. In particular, we  are going to assume
-that the spatial  indices of the max in $y_{n,c,k,l}$  are $p_m$
-and $q_m$ respectively. Therefore,
+that the spatial  indices of the max in $$y_{n,c,k,l}$$  are $$p_m$$
+and $$q_m$$ respectively. Therefore,
 
 \begin{eqnarray}
 y_{n,c,k,l} &=& x_{n,c,p_m,q_m}
@@ -509,9 +509,9 @@ Indeed, following the argument that the feature map was produced using
 convolutions, then we expect the statistics of each feature channel to
 be relatively  consistent both between different  images and different
 locations   within   the   same  image.    Therefore   spatial   batch
-normalization computes a mean and variance for each of the $C$ feature
-channels by computing statistics over both the minibatch dimension $N$
-and the spatial dimensions $H$ and $W$.
+normalization computes a mean and variance for each of the $$C$$ feature
+channels by computing statistics over both the minibatch dimension $$N$$
+and the spatial dimensions $$H$$ and $$W$$.
 
 
 ### Forward pass
@@ -556,7 +556,7 @@ of  the  loss   with  respect  to  the  centred  inputs   in  a  previous
 [post](http://cthorey.github.io/backpropagation/) and I  just drop the
 generalized version for the conv-net application here.
 
-#### Gradient of the loss with respect to $\beta$
+#### Gradient of the loss with respect to $$\beta$$
 
 $$
 \begin{eqnarray}
@@ -570,7 +570,7 @@ $$
 dbeta = np.sum(dout, axis=(0, 2, 3))
 {% endhighlight %}
 
-#### Gradient of the loss with respect to $\gamma$
+#### Gradient of the loss with respect to $$\gamma$$
 
 $$
 \begin{eqnarray}
@@ -585,7 +585,7 @@ dgamma = np.sum(dout * xhat, axis=(0, 2, 3))
 {% endhighlight %}
 
 
-#### Gradient of the loss with respect to the input $x$
+#### Gradient of the loss with respect to the input $$x$$
 
 $$
 \begin{eqnarray}
