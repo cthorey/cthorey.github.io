@@ -10,7 +10,7 @@ email: clement.thorey@gmail.com
 description: 
 footer_text: 
 url:  # the base hostname & protocol for your site
-baseurl: / # the subpath of your site, e.g. /blog/
+baseurl:  # the subpath of your site, e.g. /blog/
 last_updated: false # set to true if you want to display last updated in the footer
 
 # -----------------------------------------------------------------------------
@@ -55,7 +55,7 @@ google_analytics: UA-XXXXXXXXX # out your google-analytics code
 
 blog_name: Notes  # your blog must have a name for it to show up in the nav bar
 blog_description: 
-permalink: /blog/:year/:title/
+permalink: blog/:year/:title/
 
 # Pagination
 pagination:
@@ -81,7 +81,7 @@ collections:
 news_limit: 5
 
 # -----------------------------------------------------------------------------
-# Jekyll settings
+# Jekyll settingss
 # -----------------------------------------------------------------------------
 
 # Markdown and syntax highlight
