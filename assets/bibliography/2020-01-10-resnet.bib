@@ -1,0 +1,44 @@
+@article{resnest, 
+title = {ResNeSt: Split-Attention Networks}, 
+author = {Zhang, Hang and Wu, Chongruo and Zhang, Zhongyue and Zhu, Yi and Zhang, Zhi and Lin, Haibin and Sun, Yue and He, Tong and Mueller, Jonas and Manmatha, R and Li, Mu and Smola, Alexander}, 
+journal = {arXiv},
+url = {https://arxiv.org/abs/2004.08955}, 
+eprint = {2004.08955}, 
+abstract = {{While image classification models have recently continued to advance, most downstream applications such as object detection and semantic segmentation still employ ResNet variants as the backbone network due to their simple and modular structure. We present a simple and modular Split-Attention block that enables attention across feature-map groups. By stacking these Split-Attention blocks ResNet-style, we obtain a new ResNet variant which we call ResNeSt. Our network preserves the overall ResNet structure to be used in downstream tasks straightforwardly without introducing additional computational costs. ResNeSt models outperform other networks with similar model complexities. For example, ResNeSt-50 achieves 81.13\% top-1 accuracy on ImageNet using a single crop-size of 224x224, outperforming previous best ResNet variant by more than 1\% accuracy. This improvement also helps downstream tasks including object detection, instance segmentation and semantic segmentation. For example, by simply replace the ResNet-50 backbone with ResNeSt-50, we improve the mAP of Faster-RCNN on MS-COCO from 39.3\% to 42.3\% and the mIoU for DeeplabV3 on ADE20K from 42.1\% to 45.1\%.}}, 
+year = {2020}
+}
+@misc{sknet, 
+title = {Selective Kernel Networks}, 
+author = {Li∗1, Xiang and Wang†3, Wenhai and {Yang§, Xiaolin Hu‡4 and Jian}}, 
+url = {https://arxiv.org/pdf/1903.06586.pdf}, 
+urldate = {2020-12-19}, 
+year = {2019}
+}
+@article{senet, 
+title = {Recalibrating Fully Convolutional Networks with Spatial and Channel 'Squeeze \& Excitation' Blocks}, 
+author = {Roy, Abhijit Guha and Navab, Nassir and Wachinger, Christian}, 
+journal = {arXiv},
+url = {https://arxiv.org/abs/1808.08127},
+eprint = {1808.08127}, 
+abstract = {{In a wide range of semantic segmentation tasks, fully convolutional neural networks (F-CNNs) have been successfully leveraged to achieve state-of-the-art performance. Architectural innovations of F-CNNs have mainly been on improving spatial encoding or network connectivity to aid gradient flow. In this article, we aim towards an alternate direction of recalibrating the learned feature maps adaptively; boosting meaningful features while suppressing weak ones. The recalibration is achieved by simple computational blocks that can be easily integrated in F-CNNs architectures. We draw our inspiration from the recently proposed 'squeeze \& excitation' (SE) modules for channel recalibration for image classification. Towards this end, we introduce three variants of SE modules for segmentation, (i) squeezing spatially and exciting channel-wise, (ii) squeezing channel-wise and exciting spatially and (iii) joint spatial and channel 'squeeze \& excitation'. We effectively incorporate the proposed SE blocks in three state-of-the-art F-CNNs and demonstrate a consistent improvement of segmentation accuracy on three challenging benchmark datasets. Importantly, SE blocks only lead to a minimal increase in model complexity of about 1.5\%, while the Dice score increases by 4-9\% in the case of U-Net. Hence, we believe that SE blocks can be an integral part of future F-CNN architectures.}}, 
+keywords = {resnet}, 
+year = {2018}
+}
+@article{resnext, 
+title = {Aggregated Residual Transformations for Deep Neural Networks}, 
+author = {Xie, Saining and Girshick, Ross and Dollár, Piotr and Tu, Zhuowen and He, Kaiming}, 
+journal = {arXiv},
+url = {https://arxiv.org/abs/1611.05431},
+eprint = {1611.05431}, 
+abstract = {{We present a simple, highly modularized network architecture for image classification. Our network is constructed by repeating a building block that aggregates a set of transformations with the same topology. Our simple design results in a homogeneous, multi-branch architecture that has only a few hyper-parameters to set. This strategy exposes a new dimension, which we call "cardinality" (the size of the set of transformations), as an essential factor in addition to the dimensions of depth and width. On the ImageNet-1K dataset, we empirically show that even under the restricted condition of maintaining complexity, increasing cardinality is able to improve classification accuracy. Moreover, increasing cardinality is more effective than going deeper or wider when we increase the capacity. Our models, named ResNeXt, are the foundations of our entry to the ILSVRC 2016 classification task in which we secured 2nd place. We further investigate ResNeXt on an ImageNet-5K set and the COCO detection set, also showing better results than its ResNet counterpart. The code and models are publicly available online.}}, 
+year = {2016}
+}
+@article{resnet,
+      title={Deep Residual Learning for Image Recognition}, 
+      author={Kaiming He and Xiangyu Zhang and Shaoqing Ren and Jian Sun},
+      year={2015},
+      url={https://arxiv.org/abs/1512.03385},
+      eprint={1512.03385},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
