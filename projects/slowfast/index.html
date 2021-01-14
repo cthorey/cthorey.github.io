@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-<title>Clement  Thorey | homepage</title>
+<title>Clement  Thorey | driven-data competition</title>
 <meta name="description" content="Build a Jekyll blog in minutes, without touching the command line.">
 
 <!-- Open Graph -->
@@ -28,7 +28,7 @@
 <link rel="shortcut icon" href="/assets/img/favicon.ico">
 <link rel="stylesheet" href="/assets/css/main.css">
 
-<link rel="canonical" href="/blog/">
+<link rel="canonical" href="/projects/slowfast/">
 
 <!-- Theming-->
 
@@ -75,7 +75,7 @@
           </li>
           
           <!-- Blog -->
-          <li class="nav-item active">
+          <li class="nav-item ">
             <a class="nav-link" href="/blog/">
               blog
               
@@ -135,48 +135,93 @@
 
     <div class="container mt-5">
       <div class="post">
-  <ul class="post-list">
-    
-      <li>
-        <h3><a class="post-title" href="/blog/2021/resnet/">From ResNet to ResNeSt</a></h3>
-        <p class="post-meta">January 10, 2021</p>
-        <p></p>
-      </li>
-    
-      <li>
-        <h3><a class="post-title" href="/blog/2016/backprop_conv/">Note on the implementation of a convolutional neural networks.</a></h3>
-        <p class="post-meta">February 2, 2016</p>
-        <p></p>
-      </li>
-    
-      <li>
-        <h3><a class="post-title" href="/blog/2016/backpropagation/">What does the gradient flowing through batch normalization looks like ?</a></h3>
-        <p class="post-meta">January 28, 2016</p>
-        <p></p>
-      </li>
-    
-  </ul>
 
-  
-<nav aria-label="Blog page naviation">
-  <ul class="pagination pagination-lg justify-content-center">
-    <li class="page-item disabled">
-      <a class="page-link" href="" tabindex="-1" aria-disabled="">Newer</a>
-    </li>
-    
-      
-        <li class="page-item active"><a class="page-link" href="/blog/index.html" title="homepage">1</a></li>
-      
-        <li class="page-item "><a class="page-link" href="/blog/page/2/index.html" title="homepage - page 2">2</a></li>
-      
-    
-    <li class="page-item ">
-      <a class="page-link" href="/blog/page/2/">Older</a>
-    </li>
-  </ul>
-</nav>
+  <header class="post-header">
+    <h1 class="post-title">driven-data competition</h1>
+    <p class="post-description">Clog Loss Advance Alzheimer's Research with Stall Catchers competition</p>
+  </header>
+
+  <article>
+    <h1 id="competiton-summary">Competiton summary</h1>
+
+<p>This competition was organized by <a href="https://www.drivendata.org/competitions/65/clog-loss-alzheimers-research/page/207/">driven data</a> and aims to predict if a blood vessels is clogged or not from a video clip of the vessel itself.</p>
+
+<blockquote>
+5.8 million Americans live with Alzheimer’s dementia, including 10% of all seniors 65 and older. 
+Scientists at Cornell have discovered links between “stalls,” or clogged blood vessels in the brain, and Alzheimer’s. Stalls can reduce overall blood flow in the brain by 30%. The ability to prevent or remove stalls may transform how Alzheimer’s disease is treated.
+</blockquote>
+
+<h2 id="benchmark">benchmark</h2>
+
+<p>The data comes in the form of an heavily unbalanced set of video clip (99.7 flowing / 0.3 stalled).</p>
+
+<p>As a quick and dirty benchmark - I first tried to sample \(N\) frame for each video clip, extract
+the part underline in orange and build a 10x10 mosaic using this snippet</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>def batch_to_image(batch):
+    n = len(batch)
+    w, h = batch[0].shape
+    arr = np.vstack((batch, np.zeros((100 - n, w, h))))
+    arr = [arr[j * 10:j * 10 + 10] for j in range(10)]
+    final = []
+    for a in arr:
+        final.append(a.ravel().reshape((w * 10, w)).T)
+    return Image.fromarray(np.vstack(final).astype('uint8'))
 
 
+def process_one(filename, size=64):
+    vid = imageio.get_reader(filename, 'ffmpeg')
+    imgs = []
+    for i in range(vid.count_frames()):
+        frame = vid.get_data(i)
+        mask = cv2.inRange(frame, (255, 69, 0), (255, 180, 0))
+        mask = np.argwhere(mask)
+        xmin, xmax, ymin, ymax = mask[:, 0].min(), mask[:, 0].max(
+        ), mask[:, 1].min(), mask[:, 1].max()
+        img = Image.fromarray(
+            frame[xmin:xmax, ymin:ymax, :]).convert('L').resize((size, size))
+        imgs.append(np.array(img))
+    return batch_to_image(imgs)
+</code></pre></div></div>
+
+<p>Here is a sample of three clogged vessels</p>
+
+<div class="row">
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid rounded z-depth-1" src="/assets/img/Screenshot%20from%202020-10-24%2016-56-48.png" alt="" title="example image" />
+    </div>
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid rounded z-depth-1" src="/assets/img/Screenshot%20from%202020-10-24%2016-56-54.png" alt="" title="example image" />
+    </div>
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid rounded z-depth-1" src="/assets/img/Screenshot%20from%202020-10-24%2016-56-48.png" alt="" title="example image" />
+    </div>
+</div>
+
+<p>Using the resulting mosaic - I decided to just finetune a head on top of a resnet18 backbone. Using a weighted cross-entropy loss to take care of the unbalanced dataset, I manage to get an MCC~20% - not too bad but still far off the top of the leaderboard.</p>
+
+<p>Code available <a href="https://github.com/cthorey/clogloss">here</a></p>
+
+<h2 id="introducing-slowfast">Introducing slowfast</h2>
+
+<p><a href="https://arxiv.org/pdf/1812.03982v3.pdf">SlowFast</a> if an architecture developped by FAIR for video recognition. At the time of the competition, it was the leading model on <a href="https://paperswithcode.com/task/video-recognition">here</a>.</p>
+
+<p>The core idea is to break the processing in two different pathways:</p>
+<ol>
+  <li>One <strong>fast</strong> pathway ingesting a high FPS but lightweight to capture temporal information</li>
+  <li>A <strong>slow</strong> pathway ingesting only a few frame focusing on semantic.</li>
+</ol>
+
+<p>They release the entire codebase such that, after some tiny modification on my <a href="https://github.com/cthorey/SlowFast">end</a>, I was able to train the network almost as is on the dataset.</p>
+
+<p>Using this architecture, the performance were closer to 50% MCC.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>I trained only one model using SlowFast and this is the model that was scored against the private leaderboard. At the end of the day, it got 50% MCC - enough to be in the top percent of the participant 21/922 participants but still far off the winning solution which achieves 85%!</p>
+
+
+  </article>
 
 </div>
 

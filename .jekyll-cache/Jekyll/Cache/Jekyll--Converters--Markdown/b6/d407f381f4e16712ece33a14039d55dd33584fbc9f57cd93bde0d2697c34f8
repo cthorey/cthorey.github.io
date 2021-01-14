@@ -1,0 +1,542 @@
+I"��<p>This post is a follow-up on  the second assignment proposed as part of
+the                 Stanford                  CS                 class
+<a href="http://cs231n.github.io/">CS231n: Convolutional Neural Networks for Visual Recognition</a>.</p>
+
+<p>The last  part of the assignement  deals with the implementation  of a
+convolutional neural  network.  Among  other things, this  implies the
+implementation of forward and  backward passes for convolutional layers,
+pooling layers, spatial-batch normalisations and other non-linearities.</p>
+
+<p>Instead of writing everything on  papers and, undoubtedly, lost myself
+in the jungle of indices, I  decided to document my derivation in this
+post.</p>
+
+<h2 id="convolutional-layer">Convolutional layer</h2>
+
+<p>Convolutional  layers  are  the  building blocks  of  conv-net.   They
+convolve  their inputs  with  learnable filters  to  extract what  are
+called <strong>activation maps</strong>.</p>
+
+<h3 id="notation">Notation</h3>
+
+<p>I am going to follow the notation of the assignment.</p>
+
+<p>In particular,</p>
+
+<ul>
+  <li>Input \(x\) (\(N\), \(C\), \(H\), \(W\))</li>
+  <li>Weights \(w\) (\(F\), \(C\), \(HH\), \(WW\))</li>
+  <li>Output \(y\) (\(N\),\(F\), \(Hh\), \(Hw\))</li>
+</ul>
+
+<p>and the indices, unless differently specified, are</p>
+
+<ul>
+  <li>\(n\) for the different images</li>
+  <li>\(f\) for the different filters</li>
+  <li>\(c\) for the different channels</li>
+  <li>\(f,k\) for the spatial outputs</li>
+</ul>
+
+<h3 id="forward-pass">Forward pass</h3>
+
+<p>The first step  is the implementation of the forward  pass. Instead of
+jumping into it, let’s first look at an example to see what it does.</p>
+
+<p>We  are going  to consider  the convolution  of an  input \(x\)  of size
+\(H=W=5\) with  a filter of size  \(HH=WW=3\) with stride \(S=2\)  and zero
+padding \(P=0\).</p>
+
+<p>Graphically, \(x\) looks like</p>
+
+\[\begin{equation}
+x =
+\begin{pmatrix}
+    x_{00} &amp; x_{01} &amp; x_{02}&amp; x_{03}&amp; x_{04}\\
+    x_{10} &amp; x_{11} &amp; x_{12}&amp; x_{13}&amp; x_{14}\\
+    x_{20} &amp; x_{21} &amp; x_{22}&amp; x_{23}&amp; x_{24}\\
+    x_{30} &amp; x_{31} &amp; x_{32}&amp; x_{33}&amp; x_{34}\\
+    x_{40} &amp; x_{41} &amp; x_{42}&amp; x_{43}&amp; x_{44}
+\end{pmatrix},
+\end{equation}\]
+
+<p>the filter \(w\)</p>
+
+\[\begin{equation}
+x =
+\begin{pmatrix}
+    w_{00} &amp; w_{01} &amp; w_{02} \\
+    w_{10} &amp; w_{11} &amp; w_{12} \\
+    w_{20} &amp; w_{21} &amp; w_{22}
+\end{pmatrix},
+\end{equation}\]
+
+<p>and the bias  is just \(b\) as  we consider only one  filter. The output
+\(y\) is a vector  of size \(Hh=Hw=2\) as \(Hh\) (and  \(Hw\) here) is given
+by</p>
+
+\[Hh = 1 + (H + 2P - HH) / S.\]
+
+<p>During the convolution  process, the filter is convolved  to the input
+in  a  way that  is  defined  by the  stride  and  produces its  proper
+activation   map  \(y\).    For  instance,   \(y_{11}\)  resumes   to  the
+multiplication   element-wise   of   the  lower   right   part   (size
+\(3\times3\)) of \(x\) with the filter. Mathematically, it reads</p>
+
+\[\begin{eqnarray}
+y_{11} &amp;=&amp; x_{22}w_{00}+x_{23}w_{01}+...+x_{43}w_{21}+w_{44}w_{22} \\
+       &amp;=&amp; \sum_{p=2}^{4}\sum_{q=2}^{4} x_{p,q} w_{p-p_0,q-q_0}+b
+\end{eqnarray}\]
+
+<p>where the beginning  of the sum is  given by the index  of the element
+times the stride \(S\), and the size of  the sums are given by the size of
+their respective filter dimensions (\(HH\) or \(WW\)).</p>
+
+<p>Generalising from this example, we see that the output reads</p>
+
+\[y_{kl}=  \sum_{p=p_0}^{p=p_0+\Delta   p}\sum_{q=q_0}^{q=q_0+\Delta  q}
+x^{pad}_{p,q} w_{p-p_0,q-q_0}+b\]
+
+<p>where</p>
+
+\[\begin{eqnarray}
+p_0 &amp;=&amp; Sk\\
+q_0 &amp;=&amp; Sl\\
+\Delta p&amp;=&amp; HH\\
+\Delta q &amp;=&amp; WW
+\end{eqnarray}\]
+
+<p>and \(x^{pad}\)  is the input padded  with the adequate number  of zeros
+(given by \(P\)).</p>
+
+<p>With  \(N\) images,  \(F\) filters  and \(C\)  channels, the
+example  above  easily  generalised  and  the  forward  pass  for  the
+convolutional layer reads</p>
+
+\[\begin{eqnarray}
+y_{n,f,k,l}            &amp;=&amp;            \sum_c\sum_{p=p_0}^{p=p_0+\Delta
+p}\sum_{q=q_0}^{q=q_0+\Delta q} x^{pad}_{n,c,p,q} w_{f,c,p-p_0,q-q_0}+b_f\\
+&amp;=&amp;       \sum_c\sum_{p=0}^{\Delta       p}\sum_{q=0}^{\Delta       q}
+x^{pad}_{n,c,p+p_0,q+q_0}w_{f,c,p,q}+b_f\\
+&amp;=&amp; \sum_c\sum_{p=0}^{HH}\sum_{q=0}^{WW} x^{pad}_{n,c,p+kS,q+lS}w_{f,c,p,q}+b_f
+\end{eqnarray}\]
+
+<p>which  nicely translates  mathematically that  to obtain  the specific
+value indexed  by \(k,l\) in  the \(f\) activation  map for an  input \(n\),
+select the  corresponding subpart  of the  input of  size \((HH,WW)\),
+multiply  it by  the  filter  \(f\) and  sum  all  the resulting  terms,
+i.e. the convolution!</p>
+
+<p>In python, it looks like</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">x_pad</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,),</span> <span class="p">(</span><span class="n">P</span><span class="p">,),</span> <span class="p">(</span><span class="n">P</span><span class="p">,)),</span> <span class="s">'constant'</span><span class="p">)</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">Hh</span><span class="p">,</span> <span class="n">Hw</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>  <span class="c1"># First, iterate over all the images
+</span>    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">F</span><span class="p">):</span>  <span class="c1"># Second, iterate over all the kernels
+</span>        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Hh</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Hw</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">x_pad</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="p">:,</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">k</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">HH</span><span class="p">,</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">l</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">WW</span><span class="p">]</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="p">:])</span> <span class="o">+</span> <span class="n">b</span><span class="p">[</span><span class="n">f</span><span class="p">]</span></code></pre></figure>
+
+<h3 id="backward-pass">Backward pass</h3>
+
+<p>During the backward pass, we have to compute \(\frac{d\mathcal{L}}{dw},
+\frac{d\mathcal{L}}{dx},\frac{d\mathcal{L}}{db}\)    where    each
+gradient with respect to a quantity contains a vector of size equal to
+the  quantity  itself  and  where  we  know  from  the  previous  pass
+\(\frac{d\mathcal{L}}{dy}\)                (see               previous
+<a href="http://cthorey.github.io/backpropagation/">post</a> for more details).</p>
+
+<h4 id="gradient-with-respect-to-the-weights--fracdmathcalldw">Gradient with respect to the weights  \(\frac{d\mathcal{L}}{dw}\)</h4>
+
+<p>The gradient of the loss with respect to the weights has the same size
+as  the  weights  themselves   (\(F\),\(C\),\(HH\),\(WW\)).  Chaining  by  the
+gradient of the loss with respect to the outputs \(y\), it reads</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dw_{f',c',i,j}} = \sum_{n,f,k,l}\frac{d\mathcal{L}}{dy_{n,f,k,l}}\frac{dy_{n,f,k,l}}{dw_{f',c',i,j}}.
+\end{eqnarray}\]
+
+<p>The expression  of \(y_{n,f,k,l}\) is  derived above and  therefore, its
+derivative with respect to the weight \(w\) reads</p>
+
+\[\begin{eqnarray}
+\frac{dy_{n,f,k,l}}{dw_{f',c',i,j}} &amp;=&amp;           \frac{d}{dw_{f',c',i,j}}\left(\sum_c\sum_{p=0}^{p=\Delta
+p}\sum_{q=0}^{q=\Delta                                              q}
+x^{pad}_{n,c,p+p_0,q+q_0}w_{f,c,p,q}\right)\\
+&amp;=&amp;      \sum_c\sum_{p=0}^{p=\Delta     p}\sum_{q=0}^{q=\Delta      q}
+\delta_{c,c'}\delta_{f,f'}\delta_{p,i}\delta_{q,j}x^{pad}_{n,c,p+p_0,q+q_0}\\
+&amp;=&amp; \delta_{f,f'}x^{pad}_{n,c',i+Sk,j+Sl}
+\end{eqnarray}\]
+
+<p>Injecting  this expression  back into  the gradient  of the  loss with
+respect to the weights, we then have</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dw_{f',c',i,j}}                                  &amp;=&amp;
+\sum_{n,f,k,l}\frac{d\mathcal{L}}{dy_{n,f,k,l}}\delta_{f,f'}x^{pad}_{n,c',i+Sk,j+Sl}\\
+&amp;=&amp; \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,f',k,l}}x^{pad}_{n,c',i+Sk,j+Sl}
+\end{eqnarray}\]
+
+<p>which in python translates</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dw</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">F</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">HH</span><span class="p">,</span> <span class="n">WW</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">fprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">F</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">cprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">HH</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">WW</span><span class="p">):</span>
+                <span class="n">sub_xpad</span> <span class="o">=</span> <span class="n">x_pad</span><span class="p">[:,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">Hh</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">S</span><span class="p">,</span> <span class="n">j</span><span class="p">:</span><span class="n">j</span> <span class="o">+</span> <span class="n">Hw</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">S</span><span class="p">]</span>
+                <span class="n">dw</span><span class="p">[</span><span class="n">fprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">dout</span><span class="p">[:,</span> <span class="n">fprime</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">sub_xpad</span><span class="p">)</span></code></pre></figure>
+
+<h4 id="gradient-with-respect-to-the-bias-fracdmathcalldb">Gradient with respect to the bias \(\frac{d\mathcal{L}}{db}\)</h4>
+
+<p>The gradient of the loss with respect to the bias is of size (\(F\)).  Chaining by the
+gradient of the loss with respect to the outputs \(y\) and simplifying, it reads</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{db_{f'}}                                       &amp;=&amp;
+\sum_{n,f,k,l}\frac{d\mathcal{L}}{dy_{n,f,k,l}}\frac{dy_{n,f,k,l}}{db_{f'}}\\
+&amp;=&amp; \sum_{n,f,k,l}\frac{d\mathcal{L}}{dy_{n,f,k,l}}\delta_{f,f'}\\
+&amp;=&amp; \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,f',k,l}}
+\end{eqnarray}\]
+
+<p>which, in python, translates</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">db</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">F</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">fprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">F</span><span class="p">):</span>
+    <span class="n">db</span><span class="p">[</span><span class="n">fprime</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">dout</span><span class="p">[:,</span> <span class="n">fprime</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span></code></pre></figure>
+
+<h4 id="gradient-with-respect-to-the-input-fracdmathcalldx">Gradient with respect to the input \(\frac{d\mathcal{L}}{dx}\)</h4>
+
+<p>As above, we first  chain by the gradient of the  loss with respect to
+the output \(y\), which gives</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',i,j}}                                  &amp;=&amp;
+\sum_{n,f,k,l}\frac{d\mathcal{L}}{dy_{n,f,k,l}}\frac{dy_{n,f,k,l}}{dx_{n',c',i,j}}
+\end{eqnarray}\]
+
+<p>The second term reads</p>
+
+\[\begin{eqnarray}
+\frac{dy_{n,f,k,l}}{dx_{n',c',i,j}} &amp;=&amp; \frac{d}{dx_{n',c',i,j}}\left(\sum_c\sum_{p=0}^{HH}\sum_{q=0}^{WW} x^{pad}_{n,c,p+kS,q+lS}w_{f,c,p,q}+b_f\right)
+\end{eqnarray}\]
+
+<p>where we  have to handle  carefully the fact  that \(y\) depends  on the
+padded version of \(x^{pad}\) and not \(x\) itself. In other words, we better first
+chain with the  gradient of \(y\) with respect to  the padded version of
+\(x^{pad}\) to get</p>
+
+\[\begin{eqnarray}
+\frac{dy_{n,f,k,l}}{dx_{n',c',i,j}}                                &amp;=&amp;
+\sum_{n",c",i",j"}\frac{dy_{n,f,k,l}}{dx^{pad}_{n",c",i",j"}}\frac{dx^{pad}_{n",c",i",j"}}{dx_{n',c',i,j}}.
+\end{eqnarray}\]
+
+<p>Let’s first  look at the second  term, the gradient of  \(x^{pad}\) with
+respect to \(x\).  There is a simple relationship between  the two which
+reads</p>
+
+\[\begin{equation}
+x^{pad}_{n",x",i",j"} = x_{n",x",i"-P,j"-P} \mathbb{1}(P \le i" \le H-P)\mathbb{1}(P \le j" \le W-P)
+\end{equation}\]
+
+<p>then,</p>
+
+\[\begin{equation}
+\frac{dx^{pad}_{n",c",i",j"}}{dx_{n',c',i,j}} = \delta_{n",n'}\delta_{c",c'}\delta_{i,i"-P}\delta_{j,j"-P}
+\end{equation}\]
+
+<p>For the first term,</p>
+
+\[\begin{eqnarray}
+\frac{dy_{n,f,k,l}}{dx^{pad}_{n",c",i",j"}}                        &amp;=&amp;
+\frac{d}{dx^{pad}_{n",c",i",j"}}\left(\sum_c \sum_{p=0}^{HH}\sum_{q=0}^{WW} x^{pad}_{n,c,p+kS,q+lS}w_{f,c,p,q}+b_f\right)\\
+&amp;=&amp;  \sum_c \sum_{p=0}^{HH}\sum_{q=0}^{WW}
+\delta_{n,n"}\delta_{c,c"}\delta_{p+kS,i"}\delta_{q+lS,j"}w_{f,c,p,q}\\
+&amp;=&amp;  \sum_{p=0}^{HH}\sum_{q=0}^{WW}
+\delta_{n,n"}\delta_{p+kS,i"}\delta_{q+lS,j"}w_{f,c",p,q}\\
+\end{eqnarray}\]
+
+<p>Then, putting both terms together, we find that</p>
+
+\[\begin{eqnarray}
+\frac{dy_{n,f,k,l}}{dx_{n',c',i,j}}                                &amp;=&amp;
+\sum_{n",c",i",j"}\frac{dy_{n,f,k,l}}{dx^{pad}_{n",c",i",j"}}\frac{dx^{pad}_{n",c",i",j"}}{dx_{n',c',i,j}}\\
+&amp;=&amp;
+\delta_{n,n'}\sum_{i",j"}  \sum_{p=0}^{HH}\sum_{q=0}^{WW}
+\delta_{p+kS,i"}\delta_{i,i"-P}\delta_{j,j"-P}
+\delta_{q+lS,j"}w_{f,c',p,q}\\
+&amp;=&amp;
+\delta_{n,n'} \sum_{p=0}^{HH}\sum_{q=0}^{WW}
+\delta_{p+kS,i+P}
+\delta_{q+lS,j+P}w_{f,c',p,q}
+\end{eqnarray}\]
+
+<p>Hence, the gradient of the loss with respect to the inputs finally reads</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',i,j}}                                  &amp;=&amp;
+\sum_{n,f,k,l}\frac{d\mathcal{L}}{dy_{n,f,k,l}}\frac{dy_{n,f,k,l}}{dx_{n',c',i,j}}\\
+&amp;=&amp;\sum_{f,k,l} \sum_{p=0}^{HH}\sum_{q=0}^{WW} \frac{d\mathcal{L}}{dy_{n',f,k,l}}
+\delta_{p+kS,i+P} \delta_{q+lS,j+P}w_{f,c',p,q} \\
+\end{eqnarray}\]
+
+<p>which  in  python can  be  written  with \(9\) beautiful loops ;)</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"> <span class="c1"># For dx : Size (N,C,H,W)
+</span><span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">nprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">cprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">F</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Hh</span><span class="p">):</span>
+                        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Hw</span><span class="p">):</span>
+                            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">HH</span><span class="p">):</span>
+                                <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">WW</span><span class="p">):</span>
+                                    <span class="k">if</span> <span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span> <span class="o">==</span> <span class="n">i</span> <span class="o">+</span> <span class="n">P</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="n">S</span> <span class="o">*</span> <span class="n">l</span> <span class="o">==</span> <span class="n">j</span> <span class="o">+</span> <span class="n">P</span><span class="p">):</span>
+                                        <span class="n">dx</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dout</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span>
+                                                                             <span class="n">f</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span> <span class="o">*</span>
+                                                                             <span class="n">w</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">]</span></code></pre></figure>
+
+<p>Though  inefficient,   this  implementation   has  the   advantage  of
+translating  point  by  point  the  formula.  A  may  be  more  clever
+implementation could look like</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">nprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">F</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Hh</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">Hw</span><span class="p">):</span>
+                        <span class="n">mask1</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:])</span>
+                        <span class="n">mask2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:])</span>
+                        <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="n">P</span> <span class="o">-</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">HH</span> <span class="ow">and</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="n">P</span> <span class="o">-</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">mask1</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">+</span> <span class="n">P</span> <span class="o">-</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mf">1.0</span>
+                        <span class="k">if</span> <span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="n">P</span> <span class="o">-</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">WW</span> <span class="ow">and</span> <span class="p">(</span><span class="n">j</span> <span class="o">+</span> <span class="n">P</span> <span class="o">-</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                            <span class="n">mask2</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">j</span> <span class="o">+</span> <span class="n">P</span> <span class="o">-</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+                        <span class="n">w_masked</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">f</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">*</span> <span class="n">mask1</span> <span class="o">*</span> <span class="n">mask2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+                        <span class="n">dx</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dout</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span> <span class="o">*</span> <span class="n">w_masked</span></code></pre></figure>
+
+<p>which is somewhat still very inefficient ;) If anyone has any idea on how
+to remove the <strong>i</strong> and <strong>j</strong> loops, please tell me !</p>
+
+<h2 id="pooling-layer">Pooling layer</h2>
+
+<p>A  pooling layer  reduces the  spatial  dimension of  its input  without
+affecting its depth.</p>
+
+<p>Basically, if  a given input \(x\)  has a size (\(N,C,H,W\)),  then the output
+will have a size (\(N,C,H_1,W_1\)) where \(H_1\) and \(W_1\) are given by</p>
+
+\[\begin{eqnarray}
+H_1 &amp;=&amp; (H-H_p)/S+1 \\
+W_1 &amp;=&amp; (W-W_w)/S+1 \\
+\end{eqnarray}\]
+
+<p>and  where  \(H_p\),  \(W_p\)  and   \(S\)  are  three  hyperparameters  which
+corresponds to</p>
+
+<ul>
+  <li>\(H_p\) is the height of the pooling region</li>
+  <li>\(H_w\) is the width of the pooling region</li>
+  <li>\(S\) is the stride, the distance between two adjacent pooling region.</li>
+</ul>
+
+<h3 id="forward-pass-1">Forward pass</h3>
+
+<p>The  forward pass  is very  similar to  the one  of the  convolutional
+layer and reads</p>
+
+\[\begin{equation}
+y_{n,c,k,l} =
+\max{\begin{pmatrix}
+    x_{n,c,kS,lS} &amp; ... &amp;  x_{n,c,kS,W_p+lS}\\
+   ... &amp; ... &amp; ... \\
+    x_{n,c,kS+H_p,lS} &amp; ... &amp;     x_{n,c,kS+H_p,lS+W_p} \\
+\end{pmatrix}}.
+\end{equation}\]
+
+<p>or, more pleasantly,</p>
+
+\[\begin{eqnarray}
+y_{n,c,k,l} &amp;=&amp; \displaystyle \max_{0 \le p&lt;H_p,0 \le q&lt;W_p} x_{n,c,p+kS,q+lS}
+\end{eqnarray}\]
+
+<p>which in python translates to</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">H1</span><span class="p">,</span> <span class="n">W1</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W1</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">k</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">Hp</span><span class="p">,</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">l</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">Wp</span><span class="p">])</span></code></pre></figure>
+
+<h3 id="backward-pass-1">Backward pass</h3>
+
+<p>The gradient of the loss with respect  to the input \(x\) of the pooling
+layer writes</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',i,j}} = \sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',i,j}}.
+\end{eqnarray}\]
+
+<p>Let’s look at  the second term. In particular, we  are going to assume
+that the spatial  indices of the max in \(y_{n,c,k,l}\)  are \(p_m\)
+and \(q_m\) respectively. Therefore,</p>
+
+<p>\begin{eqnarray}
+y_{n,c,k,l} &amp;=&amp; x_{n,c,p_m,q_m}
+\end{eqnarray}</p>
+
+<p>and</p>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',i,j}}&amp;=&amp;\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',i,j}}\\
+&amp;=&amp;\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\delta_{n,n'}\delta_{c,c'}\delta_{i,p_m}\delta_{j,q_m}\\
+&amp;=&amp; \sum_{k,l}\frac{d\mathcal{L}}{dy_{n',c',k,l}}\delta_{i,p_m}\delta_{j,q_m}
+\end{eqnarray}\]
+
+<p>and we  are done! Indeed,  in python, find the  indices of the  max is
+fairly easy and the lazy compute of the gradient reads</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">nprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span>
+    <span class="k">for</span> <span class="n">cprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H1</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W1</span><span class="p">):</span>
+                        <span class="n">x_pooling</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="o">+</span> <span class="n">Hp</span><span class="p">,</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">l</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">Wp</span><span class="p">]</span>
+                        <span class="n">maxi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">max</span><span class="p">(</span><span class="n">x_pooling</span><span class="p">)</span>
+                        <span class="c1"># Make sure to find the indexes in x and not x_pooling !!!!
+</span>                        <span class="n">x_mask</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">==</span> <span class="n">maxi</span>
+                        <span class="n">pm</span><span class="p">,</span> <span class="n">qm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">x_mask</span><span class="p">.</span><span class="n">argmax</span><span class="p">(),</span> <span class="n">x_mask</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">pm</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">j</span> <span class="o">==</span> <span class="n">qm</span><span class="p">):</span>
+                            <span class="n">dx</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dout</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span></code></pre></figure>
+
+<p>Note here that we are calculating the same <strong>x_pooling</strong> many times. A
+more clever solution, computationally speaking is the following</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">N</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">nprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">cprime</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W1</span><span class="p">):</span>
+                <span class="n">x_pooling</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">k</span> <span class="o">*</span><span class="n">S</span><span class="p">:</span><span class="n">k</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">Hp</span><span class="p">,</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">l</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">Wp</span><span class="p">]</span>
+                <span class="n">maxi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">max</span><span class="p">(</span><span class="n">x_pooling</span><span class="p">)</span>
+                <span class="n">x_mask</span> <span class="o">=</span> <span class="n">x_pooling</span> <span class="o">==</span> <span class="n">maxi</span>
+                <span class="n">dx</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">k</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">k</span> <span class="o">*</span> <span class="n">S</span> <span class="o">+</span> <span class="n">Hp</span><span class="p">,</span> <span class="n">l</span> <span class="o">*</span> <span class="n">S</span><span class="p">:</span><span class="n">l</span> <span class="o">*</span><span class="n">S</span> <span class="o">+</span> <span class="n">Wp</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dout</span><span class="p">[</span><span class="n">nprime</span><span class="p">,</span> <span class="n">cprime</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">l</span><span class="p">]</span> <span class="o">*</span> <span class="n">x_mask</span></code></pre></figure>
+
+<p>But we are note looking for efficiency here, are we ?? ;)</p>
+
+<h2 id="spatial-batch-normalization">Spatial batch-normalization</h2>
+
+<p>Finally, we are asked to implement a vanilla version of batch norm for
+the convolutional layer.</p>
+
+<p>Indeed, following the argument that the feature map was produced using
+convolutions, then we expect the statistics of each feature channel to
+be relatively  consistent both between different  images and different
+locations   within   the   same  image.    Therefore   spatial   batch
+normalization computes a mean and variance for each of the \(C\) feature
+channels by computing statistics over both the minibatch dimension \(N\)
+and the spatial dimensions \(H\) and \(W\).</p>
+
+<h3 id="forward-pass-2">Forward pass</h3>
+
+<p>The forward pass is straighforward here</p>
+
+\[\begin{eqnarray}
+y_{nckl} &amp;=&amp; \gamma_c \hat{x}_{nckl}+\beta_c\\
+\hat{x}_{nckl} &amp;=&amp; \left(x_{nckl}-\mu_c\right)\left(\sigma_c^2+\epsilon\right)^{-1/2}
+\end{eqnarray}\]
+
+<p>where</p>
+
+\[\begin{eqnarray}
+\mu_c &amp;=&amp; \frac{1}{NHW}\sum_{mqp} x_{mcqp}\\
+\sigma_c^2 &amp;=&amp; \frac{1}{NHW}\sum_{mqp} \left( x_{mcqp}-\mu_c\right)^2\\
+\end{eqnarray}\]
+
+<p>In four line of python, it resumes to</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">mu</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">H</span> <span class="o">*</span> <span class="n">W</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))).</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">var</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="n">H</span> <span class="o">*</span> <span class="n">W</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))).</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">xhat</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">eps</span> <span class="o">+</span> <span class="n">var</span><span class="p">))</span>
+<span class="n">out</span> <span class="o">=</span> <span class="n">gamma</span><span class="p">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">xhat</span> <span class="o">+</span> <span class="n">beta</span><span class="p">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></code></pre></figure>
+
+<h3 id="backward-pass-2">Backward pass</h3>
+
+<p>In   the  backward   pass,  we   have  to   find  an   expression  for
+\(\frac{d\mathcal{L}}{d\gamma},
+\frac{d\mathcal{L}}{d\beta},\frac{d\mathcal{L}}{dx}\)    where    each
+gradient with respect to a quantity contains a vector of size equal to
+the quantity itself.</p>
+
+<p>I spent already  an entire post explaining how to  derive the gradient
+of  the  loss   with  respect  to  the  centred  inputs   in  a  previous
+<a href="http://cthorey.github.io/backpropagation/">post</a> and I  just drop the
+generalized version for the conv-net application here.</p>
+
+<h4 id="gradient-of-the-loss-with-respect-to-beta">Gradient of the loss with respect to \(\beta\)</h4>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{d\beta_{c'}}                                   &amp;=&amp;
+\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\beta_{c'}}\\
+&amp;=&amp; \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\\
+\end{eqnarray}\]
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dbeta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">dout</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span></code></pre></figure>
+
+<h4 id="gradient-of-the-loss-with-respect-to-gamma">Gradient of the loss with respect to \(\gamma\)</h4>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{d\gamma_{c'}}                                   &amp;=&amp;
+\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{d\gamma_{c'}}\\
+&amp;=&amp; \sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\hat{x}_{n,c',k,l}\\
+\end{eqnarray}\]
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dgamma</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">dout</span> <span class="o">*</span> <span class="n">xhat</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span></code></pre></figure>
+
+<h4 id="gradient-of-the-loss-with-respect-to-the-input-x">Gradient of the loss with respect to the input \(x\)</h4>
+
+\[\begin{eqnarray}
+\frac{d\mathcal{L}}{dx_{n',c',k',l'}}                                   &amp;=&amp;
+\sum_{n,c,k,l}\frac{d\mathcal{L}}{dy_{n,c,k,l}}\frac{dy_{n,c,k,l}}{dx_{n',c',k',l'}}\\
+&amp;=&amp;\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(NHW\frac{d\mathcal{L}}{dy_{n',c',k',l'}}
+-\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\right)\\
+&amp;-&amp;\frac{1}{NHW}\gamma_{c'}\left(\sigma_c'^2+\epsilon\right)^{-1/2}\left(\left(x_{n',c',k',l'}-\mu_{c'}\right)\left(\sigma_c'^2+\epsilon\right)^{-1}\sum_{n,k,l}\frac{d\mathcal{L}}{dy_{n,c',k,l}}\left(x_{n,c',k,l}-\mu_c\right)\right)
+\end{eqnarray}\]
+
+<p>In python</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span><span class="p">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span><span class="p">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">Nt</span> <span class="o">=</span> <span class="n">N</span> <span class="o">*</span> <span class="n">H</span> <span class="o">*</span> <span class="n">W</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">Nt</span><span class="p">)</span> <span class="o">*</span> <span class="n">gamma</span> <span class="o">*</span> <span class="p">(</span><span class="n">var</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mf">1.</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">Nt</span> <span class="o">*</span> <span class="n">dout</span>
+        <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">dout</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)).</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="o">-</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span>  <span class="n">mu</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">var</span>  <span class="o">+</span> <span class="n">eps</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span>  <span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">dout</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span>  <span class="o">-</span> <span class="n">mu</span><span class="p">),</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)).</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> </code></pre></figure>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This post focus  on the derivation of the forward  and backward passes
+for different building blocks of convolutional neural networks. Namely</p>
+
+<ul>
+  <li>A convolutional layer</li>
+  <li>A pooling layer</li>
+  <li>Spatial-batch normalization</li>
+</ul>
+
+<p>I also  document the  corresponding code in  <strong>python</strong> for  those who
+want to implement their own convolutional neural networks.</p>
+
+<p>To finish,  I’d like to  thank all the  team from the  CS231 Standford
+class  who do  a fantastic  work in  vulgarising the  knowledge behind
+neural networks.</p>
+
+<p>For those  who want  to take  a look  to my  full implementation  of a
+convolutional neural networks, you can found it
+<a href="https://github.com/cthorey/CS231">here</a>.</p>
+:ET

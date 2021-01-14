@@ -1,0 +1,758 @@
+I"W%<p>American Geophysical  Union (AGU)  meeting is a  geoscience conference
+hold  each year  around Christmas  in San  Francisco. It  represents a
+great opportunity for PhD students like  me to show off their work and
+enjoy what  the west coast has  to offer. However, with  nearly 24 000
+attendees,  AGU Fall  Meeting  is  also the  largest  Earth and  space
+science meeting  in the world.  As such, it represents  an interesting
+data set to dive into the geoscience academic world.</p>
+
+<p>In  this post,  I explore  different information  retrieval techniques
+taken from  the field  of natural language  processing to  explore the
+hidden patterns in the submitted abstract collection in 2015.</p>
+
+<p>The objective is two fold:</p>
+
+<ul>
+  <li>Identify  semantic-based  similarities   between  the  contributions
+proposed at AGU to build a query-based recommendation system.</li>
+  <li>Propose for  each query a  list of potential collaborators  based on
+the authors of the papers proposed by the recommendation system.</li>
+</ul>
+
+<p>For  those who  want  to  test the  final  recommendation system  before
+understanding how it works, a version is available for testing through
+binder <a href="https://github.com/cthorey/geocolab">here</a>.</p>
+
+<p>Different natural language processing tools are available in python to
+achieve        this        goal         and        after        trying
+<a href="http://scikit-learn.org/stable/">sklearn</a>,  I  decided to  settle  on
+<a href="https://radimrehurek.com/gensim/">gensim</a> which has particularly fast
+implementations to work with large data set (~20000 abstracts here).</p>
+
+<p>The basic stage, which I’ll detail in the following are</p>
+
+<ol>
+  <li>Cleaning the data.</li>
+  <li>Construct a valid embedding for the corpus.</li>
+  <li>Compute  the  similarities  between  the  document  within  this
+embedding.</li>
+  <li>Not satisfied ? Go back to step 2 and reiterate</li>
+</ol>
+
+<h2 id="data-cleaning">Data cleaning</h2>
+
+<p>Data cleaning is  an essential step for a  good recommendation system.
+Indeed,  our model  is going  to  use the  cleaned corpus  to build  a
+consistent embedding of the abstracts and  we do not want him to focus
+on   unnecessary   details.   Among   others,   I   used  the   module
+<strong>unicodedata</strong> to remove all non-ascii characters from the corpus.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">data</span> <span class="o">=</span> <span class="n">get_all_data</span><span class="p">(</span><span class="s">'agu2015'</span><span class="p">)</span>
+<span class="n">sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">df</span> <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="n">data</span> <span class="k">if</span> <span class="p">(</span><span class="s">''</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">title</span><span class="p">)</span> <span class="o">!=</span> <span class="s">""</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">abstract</span> <span class="o">!=</span> <span class="s">''</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">.</span><span class="n">abstract</span><span class="p">.</span><span class="n">split</span><span class="p">(</span><span class="s">' '</span><span class="p">))</span><span class="o">&gt;</span><span class="mi">100</span><span class="p">)]</span>
+<span class="n">abstracts</span> <span class="o">=</span> <span class="n">get_clean_abstracts</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span>
+<span class="n">titles</span> <span class="o">=</span> <span class="n">get_clean_titles</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span></code></pre></figure>
+
+<p>In the  following, I’ll use  one of  my contributions to  evaluate the
+consistency of our recommendation system.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">name_to_idx</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span><span class="n">name</span><span class="p">):</span>
+    <span class="s">''' From an authors, return the list of contributions '''</span>
+    <span class="n">contrib</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">sources</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">f</span><span class="p">.</span><span class="n">authors</span><span class="p">.</span><span class="n">keys</span><span class="p">()]</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">sources</span><span class="p">.</span><span class="n">index</span><span class="p">(</span><span class="n">elt</span><span class="p">)</span> <span class="k">for</span> <span class="n">elt</span> <span class="ow">in</span> <span class="n">contrib</span><span class="p">]</span>
+    
+<span class="n">my_contrib</span> <span class="o">=</span> <span class="n">name_to_idx</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span><span class="s">'Clement Thorey'</span><span class="p">)</span>
+<span class="k">print</span> <span class="s">'Title : %s'</span><span class="o">%</span><span class="p">(</span><span class="n">titles</span><span class="p">[</span><span class="n">my_contrib</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+<span class="k">print</span> <span class="s">'Abstract : %s'</span><span class="o">%</span><span class="p">(</span><span class="n">abstracts</span><span class="p">[</span><span class="n">my_contrib</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span><span class="o">+</span><span class="s">'</span><span class="se">\n\n</span><span class="s">'</span></code></pre></figure>
+
+<p><code class="language-plaintext highlighter-rouge">Title  : Floor-Fractured  Craters through  Machine Learning  Methods</code></p>
+
+<p><code class="language-plaintext highlighter-rouge">Abstract :  Floor-fractured craters are impact  craters that have
+    undergone  post impact  deformations.  They  are characterized  by
+    shallow floors with a plate-like  or convex appearance, wide floor
+    moats,     and      radial,     concentric,      and     polygonal
+    floor-fractures. While  the origin of these  deformations has long
+    been  debated, it  is now  generally  accepted that  they are  the
+    result  of the  emplacement of  shallow magmatic  intrusions below
+    their floor.  These  craters thus constitute an  efficient tool to
+    probe  the  importance  of  intrusive  magmatism  from  the  lunar
+    surface. The most recent  catalog of lunar-floor fractured craters
+    references  about 200  of them,  mainly located  around the  lunar
+    maria Herein,  we will  discuss the  possibility of  using machine
+    learning algorithms  to try to detect  new floor-fractured craters
+    on the Moon among the 60000  craters referenced in the most recent
+    catalogs. In particular, we will use the gravity field provided by
+    the Gravity Recovery and  Interior Laboratory (GRAIL) mission, and
+    the  topographic dataset  obtained  from the  Lunar Orbiter  Laser
+    Altimeter  (LOLA) instrument  to  design a  set of  representative
+    features for each crater. We  will then discuss the possibility to
+    design a binary supervised classifier, based on these features, to
+    discriminate between  the presence  or absence  of crater-centered
+    intrusion  below  a  specific   crater.   First  predictions  from
+    different classifier  in terms  of their accuracy  and uncertainty
+    will be presented.</code></p>
+
+<p>May be  a bit of  context can  be useful here.   My PhD was  about the
+detection  and   the  characterization   of  magmatic   intrusions  on
+terrestrial planets  with a special focus  on the Moon. For  those who
+wonder, a magmatic intrusion is a large volume of magma which, instead
+of rising until  the surface and spreading lava  everywhere (a volcano
+is  a good  example of  that category),  stalls at  depth beneath  the
+surface (less than a few km) where it cools and solidifies.  On Earth,
+erosion and  weathering can sometimes  expose these intrusions  at the
+surface. This is the case for  instance in the Henry mountains where a
+few laccoliths, i.e.  a solidified  magmatic intrusion rocks, stands in
+the landscape as shown in the picture.</p>
+
+<p><img src="https://upload.wikimedia.org/wikipedia/commons/a/a6/Laccolith_Montana.jpg" alt="Example of an exposed magmatic intrusion in the Henry Mountains" title="Example   of   an   exposed   magmatic  intrusion   in   the   Henry
+ Mountains. This bell-shaped geometry  is characteristic of a magmatic
+ intrusion called a laccolith." /></p>
+
+<p>My   contribution  at   AGU  deals   with  the   detection  of   lunar
+floor-fractured  craters which  are  preferential  sites for  magmatic
+intrusions  in the  lunar crust.   Indeed, those  craters are  initial
+impact  craters   that  have  been  heavily   deformed  following  the
+emplacement of large magmatic intrusions  (a few tens of km$^3$) below
+their floor.   The resulting crater structures  are abnormally shallow
+and crossed  by important fracture  networks. In this  contribution, I
+discuss the possibility  to use machine learning techniques  to try to
+automatically  detect potential  floor-fractured  craters among  60000
+referenced  lunar impact  craters (For  more detailed,  the poster  is
+available
+<a href="https://agu.confex.com/agu/fm15/mediafile/Handout/Paper67077/Poster_CM_reduced.pdf">here</a>).</p>
+
+<p><img src="http://farm4.staticflickr.com/3707/9570048249_0f15000ace_b.jpg" alt="A lunar floor-fractured crater" title="A lunar floor-fractured crater" /></p>
+
+<h2 id="bag-of-words-model">Bag of Words model</h2>
+
+<p>The base  representation for  a corpus  of text  document is  called a
+<a href="https://en.wikipedia.org/wiki/Bag-of-words_model">Bag of Word (BoW)</a>. This
+BoW model  looks at  all the  words in  the corpus  and first  build a
+dictionary referencing  all the words  (or tokens)  it has seen  by an
+index.  Then,  for each document in  the corpus, it simply  counts how
+many times  each token  in the dictionary  appears in  this particular
+document. The result  is a large matrix  of count where each  row is a
+token from the dictionary and each  column is a particular document of
+the corpus. As you can guess, the matrix is mostly filled with zeros.</p>
+
+<h3 id="tokenizer">Tokenizer</h3>
+
+<p>Under the hood, the BoW  model assumes an efficient tokenizer function
+which is  able to  split each  document it  its own  set of  tokens. A
+vanilla tokenizer function looks like this</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">tokenizer</span><span class="p">(</span><span class="n">doc</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">doc</span><span class="p">.</span><span class="n">split</span><span class="p">(</span><span class="s">' '</span><span class="p">)</span></code></pre></figure>
+
+<p>which simply  looks at a  document and splits it  in a list  of tokens
+according to the white spaces occurring  in the text. In the following,
+I will use  a slightly more evolved version of  this tokenizer which I
+embedded in a <code class="language-plaintext highlighter-rouge">Tokenizer</code> class.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Tokenizer</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="s">''' Class to handle the tokenization of a document.
+
+    parameter:
+    add_bigram (Boolean): Add the possibility to add bigram to the resulting
+    list of tokens
+
+    '''</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">add_bigram</span><span class="p">):</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">add_bigram</span> <span class="o">=</span> <span class="n">add_bigram</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">stopwords</span> <span class="o">=</span> <span class="n">get_stop_words</span><span class="p">(</span><span class="s">'english'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">stopwords</span> <span class="o">+=</span> <span class="p">[</span><span class="s">u's'</span><span class="p">,</span> <span class="s">u't'</span><span class="p">,</span> <span class="s">u'can'</span><span class="p">,</span> <span class="s">u'will'</span><span class="p">,</span> <span class="s">u'just'</span><span class="p">,</span> <span class="s">u'don'</span><span class="p">,</span> <span class="s">u'now'</span><span class="p">]</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">stemmer</span> <span class="o">=</span> <span class="n">Stemmer</span><span class="p">.</span><span class="n">Stemmer</span><span class="p">(</span><span class="s">'english'</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">bigram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokens</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">tokens</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="s">'_'</span> <span class="o">+</span> <span class="n">tokens</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">tokenize_and_stem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="n">tokens</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">gensim</span><span class="p">.</span><span class="n">utils</span><span class="p">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+        <span class="n">filtered_tokens</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">bad_tokens</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># filter out any tokens not containing letters (e.g., numeric tokens, raw
+</span>        <span class="c1"># punctuation)
+</span>        <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">re</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="s">'(^[a-z]+$|^[a-z][\d]$|^[a-z]\d[a-z]$|^[a-z]{3}[a-z]*-[a-z]*$)'</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+                <span class="n">filtered_tokens</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">bad_tokens</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+        <span class="n">filtered_tokens</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">token</span> <span class="k">for</span> <span class="n">token</span> <span class="ow">in</span> <span class="n">filtered_tokens</span> <span class="k">if</span> <span class="n">token</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">.</span><span class="n">stopwords</span><span class="p">]</span>
+        <span class="n">stems</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">stemmer</span><span class="p">.</span><span class="n">stemWord</span><span class="p">,</span> <span class="n">filtered_tokens</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="p">.</span><span class="n">add_bigram</span><span class="p">:</span>
+            <span class="n">stems</span> <span class="o">+=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">.</span><span class="n">bigram</span><span class="p">(</span><span class="n">stems</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">stems</span><span class="p">)</span></code></pre></figure>
+
+<p>The core of  this tokenizer class lies  within the <code class="language-plaintext highlighter-rouge">tokenize_and_stem</code>
+function.   This  function   uses  the  <a href="https://radimrehurek.com/gensim/">gensim</a>
+library to  first break each  document into elementary  tokens.  Next,
+using simple  regular expressions, it  keeps only suitable  tokens and
+remove all the others.</p>
+
+<p>In particular,</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">^[a-z]+$</code> keeps only words made of letters.</li>
+  <li><code class="language-plaintext highlighter-rouge">^[a-z][\d]$</code> selects tokens that have 2 characters, one letter, one number (molecule stuff).</li>
+  <li><code class="language-plaintext highlighter-rouge">^[a-z][\d][a-z]$</code> selects tokens that have 3 characters, one letter, one number, one letter (again molecule stuff).</li>
+  <li><code class="language-plaintext highlighter-rouge">^[a-z]{3}[a-z]*-[a-z]*$</code> includes some tokens that are composed of two words joined by -.</li>
+</ul>
+
+<p>Next, I use a <strong>stopword</strong>  list provided by the <strong>stop_words module</strong>
+to filter out  all the common tokens of the  English language.  Indeed,
+while  words  like  ‘the’  or  ‘as’ are  most  likely  to  be  present
+everywhere, they do  not carry meaningful information  in our purpose.
+Finally,  I  also incorporates  a  last  stage  of stemming  for  each
+token. Stemming is the term  used in information retrieval to describe
+the  process of  reducing  words  to their  word  stem,  base or  root
+form—generally a written word form.</p>
+
+<p>For instance, imagine this document</p>
+
+<p>“Here we show that running is good for health. Indeed runner are quite
+healthy. Though they  have run a lot in their  runly life, they are
+quite good at that.”</p>
+
+<p>Clearly, this document is all about running! Nevertheless, without the
+stemming  part in  our tokenizer,  ‘runly’ will  have the  same weight
+(count) than ‘good’, equal to 1. In contrast, the stemming will reduce
+‘running’,  ‘runned’,  ‘runly’  and  ‘runner’ to  their  stem,  namely
+‘run’. The word  ‘run’ in the BoW  model will then have a  weight of 4
+for  this  document clearly  underlying  its  importance!  I  use  the
+so-called    <strong>SnowballStemmer</strong>     included    in     the    library
+<strong><a href="https://pypi.python.org/pypi/PyStemmer">PyStemmer</a></strong> for stemming.</p>
+
+<p>Note that the last part of the function also allows the possibility to
+incorporate  bi-grams  in   the  final  list  of   tokens,  i.e.   all
+combinations of two consecutive stem-words  in the document which is a
+common practice when using the BoW model.</p>
+
+<h3 id="dictionnary">Dictionnary</h3>
+
+<p>From there,  we need to build  a dictionary of all  possible tokens in
+the  corpus.   <strong>Gensim</strong>  is  built  in  a  memory-friendly  fashion.
+Therefore, instead of loading the whole corpus into memory, tokenizing
+and stemming  everything and see what  remains, it allows us  to build
+the dictionary document by document, with  one document in memory at a
+time.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="c1"># Path to work in 
+</span><span class="n">abstractf</span> <span class="o">=</span> <span class="n">PATH_TO_SAVE_THE_DIFFERENT_FILES</span>
+
+<span class="c1"># First, write the document corpus on a txt file, one document per line.
+</span><span class="n">write_clean_corpus</span><span class="p">(</span><span class="n">abstracts</span><span class="p">,</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_data.txt'</span><span class="p">)</span>
+
+<span class="c1"># Create the tokenizer class
+</span><span class="n">tokeniser</span> <span class="o">=</span> <span class="n">Tokenizer</span><span class="p">(</span><span class="n">add_bigram</span> <span class="o">=</span> <span class="bp">False</span><span class="p">)</span>
+
+<span class="c1"># Next create the dictionary by iterating over the abstracts, one per line in the txt file
+</span><span class="n">dictionary</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">.</span><span class="n">tokenize_and_stem</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_data.txt'</span><span class="p">))</span> 
+<span class="n">dictionary</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_raw.dict'</span><span class="p">)</span></code></pre></figure>
+
+<p>The resulting dictionary  contains 21723 tokens. While  we could work
+out a BoW model from there, it  is often a good idea to remove extreme
+tokens. For  instance, a  token appearing  in only  1 abstract  is not
+going to help us build a efficient recommendation system. Similarly, a
+token  that appears  in  all  the documents  is  not  likely to  carry
+relevant information neither for our purpose. I therefore decided to
+remove all  tokens that appear  in less than  5 abstracts and  in more
+than 80% of them. Note that creating  the dictionary can take up to 10
+minute on my laptop which make serialization a good idea.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">dictionary</span> <span class="o">=</span>  <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_raw.dict'</span><span class="p">)</span>
+<span class="n">dictionary</span><span class="p">.</span><span class="n">filter_extremes</span><span class="p">(</span><span class="n">no_below</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span><span class="n">no_above</span><span class="o">=</span><span class="mf">0.80</span><span class="p">,</span><span class="n">keep_n</span><span class="o">=</span><span class="mi">200000</span><span class="p">)</span>
+<span class="n">dictionary</span><span class="p">.</span><span class="n">id2token</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span><span class="n">k</span> <span class="ow">in</span> <span class="n">dictionary</span><span class="p">.</span><span class="n">token2id</span><span class="p">.</span><span class="n">iteritems</span><span class="p">()}</span>
+<span class="n">dictionary</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'.dict'</span><span class="p">)</span></code></pre></figure>
+
+<h3 id="bow-representation">BoW representation</h3>
+
+<p>Now we  have the  dictionary, it  is actually easy  to obtain  the BoW
+representation of any document. We  just have to tokenize the document
+using the  same function used  to build  the dictionary and  count the
+occurrences  of each  resulting  token.  Each  dictionary in  <strong>gensim</strong>
+possess a method  <strong>doc2bow</strong> which does exactly that  and returns the
+BoW representation as a sparse vector, i.e.  a vector where only words
+that have a count different from zero are returned.</p>
+
+<p>For instance, the BoW representation of my first abstract is</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">my_contrib_bow</span> <span class="o">=</span> <span class="n">dictionary</span><span class="p">.</span><span class="n">doc2bow</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">.</span><span class="n">tokenize_and_stem</span><span class="p">(</span><span class="n">abstracts</span><span class="p">[</span><span class="n">my_contrib</span><span class="p">[</span><span class="mi">0</span><span class="p">]]))</span>
+<span class="n">df</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">+</span><span class="p">(</span><span class="n">dictionary</span><span class="p">.</span><span class="n">id2token</span><span class="p">[</span><span class="n">f</span><span class="p">[</span><span class="mi">0</span><span class="p">]],)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">my_contrib_bow</span><span class="p">]</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s">'id'</span><span class="p">,</span><span class="s">'occ'</span><span class="p">,</span><span class="s">'token'</span><span class="p">]).</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s">'occ'</span><span class="p">,</span><span class="n">ascending</span> <span class="o">=</span> <span class="bp">False</span><span class="p">)</span>
+<span class="n">df</span><span class="p">.</span><span class="n">index</span><span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+<span class="n">df</span><span class="p">.</span><span class="n">head</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span></code></pre></figure>
+
+<iframe width="500" height="200" frameborder="0" scrolling="no" src="https://plot.ly/~clement.thorey/37.embed"></iframe>
+
+<p>where the result are presented as  a pandas dataframe for clarity with
+three columns,  the id  assigned for each  token by  the <code class="language-plaintext highlighter-rouge">Dictionnary</code>
+class,  its count  and its  corresponding  token.  Note  that the  BoW
+representation of my  abstract, which underlies the  importance of the
+stem token  crater, lunar,  intrusion, floor  and classifi,  is farely
+accurate.</p>
+
+<p>By converting each abstract of the corpus using this <code class="language-plaintext highlighter-rouge">doc2bow</code> method,
+we can obtain  the BoW representation of our full  corpus.  A careless
+memory way  to do that  is to just iterate  the doc2bow method  of our
+dictionary   over  the   abstract  list   we  have   defined  at   the
+beginning. Nevertheless, this  would end up storing  the whole doc2bow
+representation into memory as a huge matrice which can be problematic,
+as least for my laptop.</p>
+
+<p>Instead, <strong>gensim</strong> has been designed  such that it only requires that
+a corpus must be able to return one document vector (for instance, the
+doc2bow  representation of  the document  here)  at a  time.  We  then
+define  the  BoW corpus  as  an  object  <code class="language-plaintext highlighter-rouge">MyCorpus</code> where  the  method
+<code class="language-plaintext highlighter-rouge">__iter__</code> is consistently defined to  iterate and transform each line of
+a .txt file where the abstracts content is stored.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">MyCorpus</span><span class="p">(</span><span class="n">Tokenizer</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">add_bigram</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MyCorpus</span><span class="p">,</span> <span class="bp">self</span><span class="p">).</span><span class="n">__init__</span><span class="p">(</span><span class="n">add_bigram</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">load_dict</span><span class="p">()</span>
+        
+    <span class="k">def</span> <span class="nf">load_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">name</span> <span class="o">+</span> <span class="s">'.dict'</span><span class="p">):</span>
+            <span class="k">print</span> <span class="s">'You should build the dictionary first !'</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s">'dictionary'</span><span class="p">,</span>
+                    <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">name</span> <span class="o">+</span> <span class="s">'.dict'</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">name</span> <span class="o">+</span> <span class="s">'_data.txt'</span><span class="p">):</span>
+            <span class="c1"># assume there's one document per line, tokens separated by
+</span>            <span class="c1"># whitespace
+</span>            <span class="k">yield</span> <span class="bp">self</span><span class="p">.</span><span class="n">dictionary</span><span class="p">.</span><span class="n">doc2bow</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">tokenize_and_stem</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
+
+<span class="n">bow_corpus</span> <span class="o">=</span> <span class="n">MyCorpus</span><span class="p">(</span><span class="n">abstractf</span><span class="p">)</span>
+<span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">.</span><span class="n">serialize</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'bow_.mm'</span><span class="p">,</span><span class="n">bow_corpus</span><span class="p">)</span></code></pre></figure>
+
+<h3 id="recommendation">Recommendation</h3>
+
+<p>In the BoW representation of our corpus, each abstract is a point in a
+high-dimensional embedding (a 8430 dimensions embedding exactly). The
+<em>distance</em> or  the <em>similarity</em> between  one abstract and the  rest of
+the corpus,  according to some  metrics, can  then be used  to compare
+different contributions together and then, to provide a recommendation
+list for a specific query.</p>
+
+<p>The euclidean  distance is always a  first natural choice to  design a
+distance  in an  arbitrary  space.  Given  two  vectors $\vec{a}$  and
+$\vec{b}$, it is equal to</p>
+
+\[d(\vec{a},\vec{b})    =    \sqrt{(\vec{b}-    \vec{a})\cdot(\vec{b}-
+\vec{a}) }\]
+
+<p>However, we’d like our distance to  be independent of the magnitude of
+the  difference  between  two  vectors. For  instance,  we’d  like  to
+identify  as similar  two  abstracts which  contain  exactly the  same
+tokens even  if their  occurrence differs significantly.  The euclidean
+distance clearly does not have this property.</p>
+
+<p>Accordingly, a  more reliable measure  for our purpose is  called “the
+cosine  similarity”. For  two  vectors, $\vec{a}$  and $\vec{b}$,  the
+cosine similarity $d$ is defined as :</p>
+
+\[d(\vec{a},\vec{b})=           \frac{\vec{a}          \cdot
+\vec{b}}{|\vec{a}||\vec{b}|} = \cos(\vec{a},\vec{b})\]
+
+<p>In particular, this  similarity measure is the dot product  of the two
+normalized vector and hence, depends only on the angle between the two
+vectors (which is were its name comes  from ;). It ranges from -1 when
+two vectors  point in the opposite  direction to 1 when  they point in
+the same direction.</p>
+
+<p>To compute the similarity of one query against our BoW representation,
+the natural procedure is to  first transform our sparse representation
+into its  dense equivalent, i.e. a  matrix where the number  of lines
+correspond to the number of tokens in the dictionary and the number of
+columns to  the number  of abstracts  in the  corpus. Then,  we column
+normalize the  matrix such  that each document  correspond to  a unit
+vector in the representation space. Finally, we take the dot product of
+the transposed  matrix with the  desired normalized query to  get its
+cosine similarity against all the documents in the corpus.</p>
+
+<p><strong>Gensim</strong>  contains efficient  utility functions  to help  converting
+  from/to numpy matrix and therefore, this translates to</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_score</span><span class="p">(</span><span class="n">doc_id</span><span class="p">):</span>
+    <span class="c1"># First load the corpus and the dicitonary
+</span>    <span class="n">bow_corpus</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'.mm'</span><span class="p">)</span>
+    <span class="n">dictionary</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'.dict'</span><span class="p">)</span>
+    <span class="c1"># Transform our sparse representation into dense
+</span>    <span class="n">numpy_matrix</span> <span class="o">=</span> <span class="n">gensim</span><span class="p">.</span><span class="n">matutils</span><span class="p">.</span><span class="n">corpus2dense</span><span class="p">(</span><span class="n">bow_corpus</span><span class="p">,</span> <span class="n">num_terms</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">dictionary</span><span class="p">))</span>
+    <span class="c1"># Normalize each abstract in the corpus
+</span>    <span class="n">normalized_matrix</span> <span class="o">=</span> <span class="n">numpy_matrix</span><span class="o">/</span><span class="n">np</span><span class="p">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nb">sum</span><span class="p">(</span><span class="n">numpy_matrix</span><span class="o">*</span><span class="n">numpy_matrix</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="c1"># Take the dot product of the resulting matrice with query to get the relevant cosine similarity
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="n">dot</span><span class="p">(</span><span class="n">normalized_matrix</span><span class="p">.</span><span class="n">T</span><span class="p">,</span><span class="n">normalized_matrix</span><span class="p">[:,</span><span class="n">doc_id</span><span class="p">])</span></code></pre></figure>
+
+<p>The   recommendation  against   my  abstracts   and  their   associate
+cosine-similarity are</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Recom 1 - Cosine: 1.000 - Title:  Floor-Fractured Craters through Machine Learning Methods
+Recom 2 - Cosine: 0.563 - Title:  Structural and Geological Interpretation of Posidonius Crater on the Moon
+Recom 3 - Cosine: 0.482 - Title:  Preliminary Geological Map of the Ac-H-2 Coniraya Quadrangle of Ceres  An Integrated Mapping Study Using Dawn Spacecraft Data
+Recom 4 - Cosine: 0.448 - Title:  The collisional history of dwarf planet Ceres revealed by Dawn
+Recom 5 - Cosine: 0.435 - Title:  Initial Results from a Global Database of Mercurian Craters
+Recom 6 - Cosine: 0.416 - Title:  Morphologic Analysis of Lunar Craters in the Simple-to-Complex Transition
+</code></pre></div></div>
+
+<p>In  particular, the  cosine  similarity of  the  query against  itself
+returns 1, which in itself  is reassuring!  The cosine-similarity then
+drops below 0.6. While the recommendations are fairly accurate, I have
+effectively  been most  of this  presentations,  we can  get a  slight
+increase of the score using a trick called <strong>tf-idf</strong> normalization.</p>
+
+<h2 id="tf-idf-representation">TF-IDF representation</h2>
+
+<p>Indeed, one  of the  problem with  the BoW  representation is  that it
+often puts  too much weights on  common words of the  corpus. While we
+remove  most  common  words  of   the  English  language,  words  like
+‘present’,   ‘show’   of  whatever   words   commonly   used  in   the
+writing-abstract  vocabulary can  add  some noise  in  regards to  our
+recommendation.  In particular here, we would like to put more weights
+on tokens that make each abstract specific.</p>
+
+<p>A  common way  to do  this  is to  use a  <strong>Tf-Idf</strong> normalization  to
+re-weight each count in the BoW  representation by the frequency of the
+token  in   the  whole  corpus.  <strong>Tf</strong>   means  term-frequency  while
+<strong>Tf–Idf</strong> means term-frequency times inverse document-frequency. This
+way, the weight  of common tokens in the corpus  will be significantly
+lowered.</p>
+
+<p>This  implementation  is  available  is <strong>gensim</strong>  and  can  be  easily
+combined with the BoW representation  to get the representation of the
+corpus in the tf-idf space.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="c1"># First load the corpus and the dicitonary
+</span><span class="n">bow_corpus</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'.mm'</span><span class="p">)</span>
+<span class="n">dictionary</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'.dict'</span><span class="p">)</span>
+<span class="c1"># Initialize the tf-idf model
+</span><span class="n">tfidf</span> <span class="o">=</span> <span class="n">models</span><span class="p">.</span><span class="n">TfidfModel</span><span class="p">(</span><span class="n">bow_corpus</span><span class="p">)</span>
+<span class="c1"># Compute the tfidf of the corpus itself
+</span><span class="n">tfidf_corpus</span> <span class="o">=</span> <span class="n">tfidf</span><span class="p">[</span><span class="n">bow_corpus</span><span class="p">]</span>
+<span class="c1"># Serialize both for reuse
+</span><span class="n">tfidf</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_tfidf.model'</span><span class="p">)</span>
+<span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">.</span><span class="n">serialize</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_tfidf.mm'</span><span class="p">,</span><span class="n">tfidf_corpus</span><span class="p">)</span></code></pre></figure>
+
+<p>In this  embedding, the cosine  similarity of my abstract  agaisnt the
+remaining of the corpus gives</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Recom 1 - Cosine: 1.000 - Title:  Floor-Fractured Craters through Machine Learning Methods
+Recom 2 - Cosine: 0.654 - Title:  Structural and Geological Interpretation of Posidonius Crater on the Moon
+Recom 3 - Cosine: 0.509 - Title:  The collisional history of dwarf planet Ceres revealed by Dawn
+Recom 4 - Cosine: 0.506 - Title:  Preliminary Geological Map of the Ac-H-2 Coniraya Quadrangle of Ceres  An Integrated Mapping Study Using Dawn Spacecraft Data
+Recom 5 - Cosine: 0.495 - Title:  Hydrological Evolution and Chemical Structure of the Hyper-acidic Spring-lake System on White Island, New Zealand
+Recom 6 - Cosine: 0.484 - Title:  Initial Results from a Global Database of Mercurian Craters
+</code></pre></div></div>
+
+<p>While the cosine-similarity  is indeed slightly better,  it still does
+passes above 0.5.  One of the reason might be  the number of dimension
+of the representation space. Indeed, both in the BoW and Tf-Idf model,
+we  are trying  to  calculate  distance, similarity,  in  a very  high
+dimensional space. One problem with a such huge number of dimension is
+that similarity  measure begins  to becomes all  similar in  such high
+embedding. A gain of performance could surely be obtained by trying to
+reduce the size of the representation space.</p>
+
+<h2 id="latent-semantic-analysis-lsa-or-lsi">Latent Semantic Analysis (LSA) or (LSI)</h2>
+
+<p>And here comes  Latent Semantic Analysis (LSA) or  Indexing (LSI). LSI
+is a common method in information retrieval to reduce the dimension of
+the representation  space. The  idea behind  it is that  a lot  of the
+dimensions  in  the  previous   representations  are  redundant.   For
+instance,  the words  machine and  learning are  more likely  to occur
+together. Therefore, shrinking these two  dimensions to only one which
+is form  by a  linear combination  of the  token machine  and learning
+would  reduce the  dimension without  any loss  of information.   More
+generally, the Latent Semantic Analysis  aims to reduce the dimensions
+while  keeping as  much  information possible  present  in the  higher
+dimensional space by identifying deep semantic pattern in the corpus.</p>
+
+<p>To identify this  semantic structure, Latent Semantic  Analysis used a
+linear               algebra               method               called
+<a href="https://en.wikipedia.org/wiki/Latent_semantic_analysis">Singular Value Decomposition (SVD)</a>.
+More formally, we  know that the tf-idf representation  can be written
+as a  huge matrix $X$  where each line corresponds  to a token  in the
+dictionary  and each  column corresponds  to a  document. Its  size is
+(T,N) where T is the number of tokens and N the number of abstracts.</p>
+
+<p>The maths behind LSI factorizes the matrix $X$ as</p>
+
+\[X = UDV^T\]
+
+<p>where $U$  is a unitary  matrix, i.e.  formed by orthogonal  unit norm
+vectors, of size  (T,T), $D$ is a diagonal rectangular  matrix of size
+(T,N) and $V$ is  also a unitary matrix of size  (N,N). The vectors in
+$U$ are called left eigenvectors, the  vectors in $V$ are called right
+eigenvectors and  the matrix $D$  is composed by  their corresponding
+eigenvalues.</p>
+
+<p>Particularly,  this factorization  has a  nice property  regarding the
+matrix containing all the cross-documents dot-product $X^TX$. Indeed,</p>
+
+\[X^TX = (UDV^T)^T(UDV^T) = (VD^TU^T)(UDV^T) = VD^TDV^T\]
+
+<p>and  therefore, the  orthonormal vectors  in $V$  can be  seen as  the
+eigenvectors of the cross-document correlation matrix $X^TX$. As D is
+diagonal,  $D^TD$ is  just  composed by  the  eigenvalues squared  and
+therefore, these eigenvalues can be used as a direct proxy to evaluate
+the variance in the cross-document correlation matrix.</p>
+
+<p>A rank $k$ approximation of $X$ can be obtain by</p>
+
+\[X_k = U_kD_kV^T_k\]
+
+<p>where $U_k$ and $V_k$ are the matrices  $U$ and $V$ where we kept only
+the $k$ first eigenvectors, i.e  size (T,K) and (N,K) respectively and
+$D_k$ is  a squared matrix of  size (K,K) which contains  the k first
+eigenvalues of  the diagonal. More  importantly, $V_kD^T_k$ gives  us a
+the  new representation,  called  LSI space,  where  each document  is
+characterized  by k  features.  The SVD  is thus  able  to identify  a
+consistent lower-dimensional  approximation of  the higher-dimensional
+tfidf space.</p>
+
+<p><strong>Gensim</strong>  implements  the Latent  Semantic  Analysis  under a  model
+called  <code class="language-plaintext highlighter-rouge">LsiModel</code>  which   can  be  used  on  top   of  our  previous
+representation easily. It requires  a parameter, <strong>num_topics</strong>, which
+corresponds to the desired dimension in the final lsi space.  I settle
+on <strong>num_topics=500</strong> for good performance.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python">    <span class="c1"># First load the corpus and the dicitonary
+</span>    <span class="n">tfidf_corpus</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_tfidf.mm'</span><span class="p">)</span>
+    <span class="n">dictionary</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'.dict'</span><span class="p">)</span>
+    <span class="c1"># Initialize the lsi model
+</span>    <span class="n">lsi</span> <span class="o">=</span> <span class="n">models</span><span class="p">.</span><span class="n">LsiModel</span><span class="p">(</span><span class="n">tfidf_corpus</span><span class="p">,</span><span class="n">id2word</span><span class="o">=</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">num_topics</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+    <span class="c1"># Compute the lsi of the corpus itself
+</span>    <span class="n">lsi_corpus</span> <span class="o">=</span> <span class="n">lsi</span><span class="p">[</span><span class="n">tfidf_corpus</span><span class="p">]</span>
+    <span class="c1"># Serialize both for reuse
+</span>    <span class="n">lsi</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_lsi.model'</span><span class="p">)</span>
+    <span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">.</span><span class="n">serialize</span><span class="p">(</span><span class="n">abstractf</span><span class="o">+</span><span class="s">'_lsi.mm'</span><span class="p">,</span><span class="n">lsi_corpus</span><span class="p">)</span></code></pre></figure>
+
+<p>where we  used $k=500$  here. The  matrix $U$ and  $D$ can  be easily
+extracted  from the  model and  we verify  that the  return lsi_corpus
+correspond to $V_kD_k^T$.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">V</span> <span class="o">=</span> <span class="n">gensim</span><span class="p">.</span><span class="n">matutils</span><span class="p">.</span><span class="n">corpus2dense</span><span class="p">(</span><span class="n">lsi_corpus</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lsi</span><span class="p">.</span><span class="n">projection</span><span class="p">.</span><span class="n">s</span><span class="p">)).</span><span class="n">T</span> <span class="o">/</span> <span class="n">lsi</span><span class="p">.</span><span class="n">projection</span><span class="p">.</span><span class="n">s</span>
+<span class="n">lsi_corpus_dense</span> <span class="o">=</span> <span class="n">gensim</span><span class="p">.</span><span class="n">matutils</span><span class="p">.</span><span class="n">corpus2dense</span><span class="p">(</span><span class="n">lsi_corpus</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">lsi</span><span class="p">.</span><span class="n">projection</span><span class="p">.</span><span class="n">s</span><span class="p">))</span>
+<span class="n">np</span><span class="p">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">dot</span><span class="p">(</span><span class="n">V</span><span class="p">,</span><span class="n">np</span><span class="p">.</span><span class="n">diag</span><span class="p">(</span><span class="n">lsi</span><span class="p">.</span><span class="n">projection</span><span class="p">.</span><span class="n">s</span><span class="p">)),</span><span class="n">lsi_corpus_dense</span><span class="p">.</span><span class="n">T</span><span class="p">)</span></code></pre></figure>
+
+<p>return <code class="language-plaintext highlighter-rouge">True</code>. We  can also verify that we pick  up a sufficient order
+for  the approximation  by plotting  the eigenvalues  of the  SVD which
+range in a decreasing order.</p>
+
+<iframe width="700" height="400" frameborder="0" scrolling="no" src="https://plot.ly/~clement.thorey/43.embed"></iframe>
+
+<p>Most  of  the  information  is  indeed  contained  in  the  first  100
+dimensions of our  new representation space.</p>
+
+<p>Finally,  in this  lsi space,  the cosine  similarity looks  much more
+promising !</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Recom 1 - Cosine: 1.000 - Title:  Floor-Fractured Craters through Machine Learning Methods
+Recom 2 - Cosine: 0.857 - Title:  Structural and Geological Interpretation of Posidonius Crater on the Moon
+Recom 3 - Cosine: 0.823 - Title:  Lunar Crater Interiors with High Circular Polarization Signatures
+Recom 4 - Cosine: 0.809 - Title:  The collisional history of dwarf planet Ceres revealed by Dawn
+Recom 5 - Cosine: 0.797 - Title:  An Ice-rich Mantle on Ceres from Dawn Mapping of Central Pit and Peak Crater Morphologies
+Recom 6 - Cosine: 0.795 - Title:  Morphologic Analysis of Lunar Craters in the Simple-to-Complex Transition
+</code></pre></div></div>
+
+<h2 id="visualization-with-the-lsi-space">Visualization with the lsi-space</h2>
+
+<p>The lsi reduction process identify latent semantic in the structure to
+effectively reduce the dimension of the representation. A first way to
+look  at these  semantic  structure  is to  look  at  the matrix  $U$
+directly which expressed the coordinates  of the eigenvectors in terms
+of the dictionary tokens.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="c1"># Define a function which returns  the first words contributions ranks
+#by their coefficient in the k eigenvectors (0&lt;k&lt;500)
+</span><span class="k">def</span> <span class="nf">print_n_topics</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="n">k</span><span class="p">):</span>
+    <span class="n">k</span> <span class="o">-=</span><span class="mi">1</span>
+    <span class="n">words</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span><span class="n">dictionary</span><span class="p">.</span><span class="n">id2token</span><span class="p">[</span><span class="n">x</span><span class="p">],</span><span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">lsi</span><span class="p">.</span><span class="n">projection</span><span class="p">.</span><span class="n">u</span><span class="p">[:,</span><span class="n">k</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])[:</span><span class="mi">10</span><span class="p">])</span>
+    <span class="n">coeff</span> <span class="o">=</span> <span class="p">[</span><span class="s">'%1.3f'</span><span class="o">%</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">sort</span><span class="p">(</span><span class="n">lsi</span><span class="p">.</span><span class="n">projection</span><span class="p">.</span><span class="n">u</span><span class="p">[:,</span><span class="n">k</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])[:</span><span class="mi">10</span><span class="p">]]</span>
+    <span class="k">return</span> <span class="nb">reduce</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">:</span> <span class="n">y</span><span class="o">+</span><span class="s">' + '</span><span class="o">+</span><span class="n">x</span><span class="p">,</span> <span class="p">[</span><span class="n">g</span><span class="o">+</span><span class="s">'x'</span><span class="o">+</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span><span class="n">g</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">words</span><span class="p">,</span><span class="n">coeff</span><span class="p">)][::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></code></pre></figure>
+
+<p>For  instance,  the  first  eigenvalue, which  explains  most  of  the
+information contains in  the corpus, is associated  with the following
+eigenvector</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>u'0.119xmodel + 0.112xwater + 0.105xclimat + 0.098xsoil + 0.096xdata + 0.094xchang + 0.091xice + 0.088xsurfac + 0.080xregion + 0.080xtemperatur'
+</code></pre></div></div>
+
+<p>It clearly deals with global atmospheric models which, as we have seen
+in  the  previous  post,  in  a very  important  topics  in  the  2015
+conference.  Nevertheless,  the  linear   combination  is  not  always
+straightforward. For instance, the 42nd eigenvectors looks like</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>u'0.254xstorm + 0.192xionospher + 0.142xflux + 0.133xglacier + 0.123xheat + 0.123xaerosol + 0.107xgeomagnet + 0.103xforest + 0.103xal + 0.103xet'
+</code></pre></div></div>
+
+<p>which links aerosols with glacier and ionospher… $</p>
+
+<p>As a better idea, I use <a href="https://lvdmaaten.github.io/tsne/">t-sne</a>, an
+efficient  method to  visualize  high dimensional  space  in 2D.   The
+intuition   behind  t-sne   is   a  method   which   embeds  the   500
+high-dimensional vectors lsi space  into a low-dimensional space (here
+2D)  while  trying  to  preserve  the  cosine  distances  between  two
+points. In  short, points that  are close  in the lsi-space  should be
+close on the 2D plot regarding cosine similarity measure. I associated
+to each point  in the t-sne representation a color  by section. I also
+associate different  sections with  closely related topics  to similar
+colors.</p>
+
+<p>The result looks  very nice. While we have  not entirely reconstructed
+the  higher structural  hierarchy  of the  conference (the  sections),
+clearly some pattern are standing out. In particular,</p>
+
+<ul>
+  <li>Space  Physics and  Aeronomy (SPA)  together with  planetary science
+forms a nice cluster on the top right of the representation.</li>
+  <li>Atmospheric science cluster on the top</li>
+  <li>Education, Union and  Public affaire form cluster is  a very elegant
+way on the bottom left.</li>
+  <li>Biogeoscience occupy the left hand side of the representation</li>
+  <li>Seismology/Technophysics cluster on the bottom right</li>
+  <li>Volcanology,  Natural  hazards  and  the study  of  the  Earth  deep
+interior cluster on the right</li>
+  <li>Non-linear geophysics, which apply to lot different topics naturally
+clusters at the center.</li>
+</ul>
+
+<iframe width="750" height="500" frameborder="0" scrolling="no" src="https://plot.ly/~clement.thorey/41.embed"></iframe>
+
+<p>This show us the strenght of the  method used in this post to identify
+deep hidden structure in the corpus  of text composed by the abstracts
+of the conference. This also supports our recommendation system.</p>
+
+<h2 id="recommandation-and-potential-collaborator-search">Recommandation and potential collaborator search</h2>
+
+<p>One thing  I found particularly  hard in my first  AGU was not  to get
+lost in  the flow of presentation.  Indeed, in such a  conference, one
+has  to  find the  good  trade-off  between  going everywhere  to  see
+everything and going nowhere to  see anything. Follow the first option
+and    you   will    most    likely   get    rapidly   saturated    by
+information. Follow the second option  and, while you will have plenty
+of time to  do sight-seeing in San Francisco,  the geoscience academic
+world might let you behind ;).</p>
+
+<p>While  there  is still  a  lot  of  space  for improvement  here,  the
+recommendation system  we design  could be very  useful. It  could be
+particularly useful for  newcomers that are not really  at ease with
+searching the program for hours in the hope to find something closely
+related to what they do during their PhD.  In addition, as you can see
+on the t-sne representation, the recommendation system we develop here
+does not strictly follows the  hierarchy proposed by the AGU conveners
+and get  you in touch  with some  presentations far from  your original
+field but, still, very close in their respective content, presentation
+that  you might  not  have  hear off  without  the  strength of  Latent
+Semantic Indexing ;)</p>
+
+<p>The final wrapper for our recommendation system looks like</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">RecomendationSystem</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path_model</span><span class="p">):</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">model_saved</span> <span class="o">=</span> <span class="n">path_model</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">model_saved</span><span class="p">,</span> <span class="s">'abstract'</span><span class="p">)</span>
+
+        <span class="c1"># Load the titles and abstract + links
+</span>        <span class="bp">self</span><span class="p">.</span><span class="n">sources</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">+</span> <span class="s">'_sources.txt'</span><span class="p">),</span>
+                                   <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s">'title'</span><span class="p">,</span> <span class="s">'link'</span><span class="p">])</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">titles</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">sources</span><span class="p">.</span><span class="n">title</span><span class="p">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">links</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">sources</span><span class="p">.</span><span class="n">link</span><span class="p">.</span><span class="n">tolist</span><span class="p">()</span>
+
+        <span class="c1"># Load the necessary models, the lsi corpus and the corresponding index
+</span>        <span class="bp">self</span><span class="p">.</span><span class="n">tokeniser</span> <span class="o">=</span> <span class="n">Tokenizer</span><span class="p">(</span><span class="bp">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">dictionary</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">Dictionary</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">+</span> <span class="s">'.dict'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">tfidf</span> <span class="o">=</span> <span class="n">models</span><span class="p">.</span><span class="n">TfidfModel</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">+</span> <span class="s">'_tfidf.model'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">lsi</span> <span class="o">=</span> <span class="n">models</span><span class="p">.</span><span class="n">LsiModel</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">+</span> <span class="s">'_lsi.model'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">corpus</span> <span class="o">=</span> <span class="n">corpora</span><span class="p">.</span><span class="n">MmCorpus</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">+</span> <span class="s">'_lsi.mm'</span><span class="p">)</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">similarities</span><span class="p">.</span><span class="n">MatrixSimilarity</span><span class="p">.</span><span class="n">load</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">.</span><span class="n">abstractf</span> <span class="o">+</span> <span class="s">'_lsi.index'</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">transform_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+        <span class="c1"># Transform the query in lsi space
+</span>        <span class="c1"># Transform in the bow representation space
+</span>        <span class="n">vec_bow</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">dictionary</span><span class="p">.</span><span class="n">doc2bow</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">.</span><span class="n">tokeniser</span><span class="p">.</span><span class="n">tokenize_and_stem</span><span class="p">(</span><span class="n">query</span><span class="p">))</span>
+        <span class="c1"># Transform in the tfidf representation space
+</span>        <span class="n">vec_tfidf</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">tfidf</span><span class="p">[</span><span class="n">vec_bow</span><span class="p">]</span>
+        <span class="c1"># Transform in the lsi representation space
+</span>        <span class="n">vec_lsi</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">lsi</span><span class="p">[</span><span class="n">vec_tfidf</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">vec_lsi</span>
+
+    <span class="k">def</span> <span class="nf">recomendation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+
+        <span class="n">vec_lsi</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">transform_query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="c1"># Get the cosine similarity of the query against all the abstracts
+</span>        <span class="n">cosine</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">index</span><span class="p">[</span><span class="n">vec_lsi</span><span class="p">]</span>
+        <span class="c1"># Sort them and return a nice dataframe
+</span>        <span class="n">results</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">stack</span><span class="p">((</span><span class="n">np</span><span class="p">.</span><span class="n">sort</span><span class="p">(</span><span class="n">cosine</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                                         <span class="n">np</span><span class="p">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">titles</span><span class="p">)[</span>
+                                             <span class="n">np</span><span class="p">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">cosine</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span>
+                                         <span class="n">np</span><span class="p">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">links</span><span class="p">)[</span><span class="n">np</span><span class="p">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">cosine</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])).</span><span class="n">T</span><span class="p">,</span>
+                               <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s">'CosineSimilarity'</span><span class="p">,</span> <span class="s">'title'</span><span class="p">,</span> <span class="s">'link'</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+    <span class="k">def</span> <span class="nf">get_recomendation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">recomendation</span><span class="p">(</span><span class="n">query</span><span class="p">).</span><span class="n">head</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="p">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="k">print</span> <span class="s">'The %d recomendation, cosine sililarity of %1.3f is '</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">CosineSimilarity</span><span class="p">))</span>
+            <span class="k">print</span> <span class="s">' %s'</span> <span class="o">%</span> <span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">title</span><span class="p">)</span>
+            <span class="k">print</span> <span class="s">'%s </span><span class="se">\n</span><span class="s">'</span> <span class="o">%</span> <span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="n">link</span><span class="p">)</span></code></pre></figure>
+
+<p>Note  that  this recommendation  class  can  adapt  to, not  only  the
+abstracts in the corpus, but to  any possible queries.  The only thing
+to make sure, and which is taken care by the method <code class="language-plaintext highlighter-rouge">transform_query</code>,
+is  to appropriately  transform  the query  in  the corresponding  lsi
+space. In this  wrapper, we also use some utility  of <strong>gensim</strong> which
+allows us to  rapidly compute the similarity of our  query against all
+abstract   in   the   corpus   (more   details   on   the   <strong>gensim</strong>
+<a href="https://radimrehurek.com/gensim/tut3.html">tutorial</a>).</p>
+
+<p>The second aim  of this project was  to bring up a  wrapper that could
+propose a list of collaborator/researcher  in the field, relative to a
+specific query.  Now,  we have a recommendation system,  we can easily
+build up  this feature on  top of it using  the data collected  in the
+first  post  on  each  contributor.  The  full  version  is  available
+<a href="https://github.com/cthorey/geocolab/blob/master/geocolab/Data_Utils.py">here</a>
+and     a     live     demo    is     available     through     binder
+<a href="https://github.com/cthorey/geocolab">here</a>.   For  instance,  for  my
+first contributions and based only on 1 abstracts return</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CLEMENT THOREY from the Institut de Physique du Globe de Paris, FRANCE
+Based on his/her abstract untitled
+Floor-Fractured Craters through Machine Learning Methods
+https://agu.confex.com/agu/fm15/meetingapp.cgi/Paper/67077
+</code></pre></div></div>
+
+<p>only myself, as expected !</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This post  concludes a  compilation of three  different posts  on some
+data I  have collected  on the American  Geophysical Union  (AGU) fall
+meeting hold each  year around Christmas in San  Francisco.  This post
+exposes the final part of this project that aims to build an efficient
+abstract and potential collaborator recommendation system based on the
+abstract corpus of the conference.</p>
+
+<p>To achieve  this goal,  we review  the different  ways to  transform a
+corpus  of documents  into a  consistent mathematical  representation,
+i.e.   an  embedding  where  each  document  is  a  point  in  a  high
+dimensional   space.    Such   embedding  simplifies   the   task   of
+recommendation  to the  calculation of  the cosine-similarity  between
+these highly-dimensional points.</p>
+
+<p>We settle  on a recommendation system  based on a 500  LSI space which
+gives very intuitive results according  to the 2D t-sne representation
+of  the representation  space.  The  next-step might  be  to build  an
+application on  top of this  python back-end and may-be,  propose such
+system for the next conference in 2016 ; )!</p>
+:ET

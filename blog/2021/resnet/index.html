@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+<title>Clement  Thorey | From ResNet to ResNeSt</title>
+<meta name="description" content="Build a Jekyll blog in minutes, without touching the command line.">
+
+<!-- Open Graph -->
+
+
+<!-- Bootstrap & MDB -->
+<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" integrity="sha512-MoRNloxbStBcD8z3M/2BmnT+rg4IsMxPkXaGh2zD6LGNNFE80W3onsAhRcMAMrSoyWL9xD7Ert0men7vR8LUZg==" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.19.1/css/mdb.min.css" integrity="sha512-RO38pBRxYH3SoOprtPTD86JFOclM51/XTIdEPh5j8sj4tp8jmQIx26twG52UaLi//hQldfrh7e51WzP9wuP32Q==" crossorigin="anonymous" />
+
+<!-- Fonts & Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css"  integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.9.0/css/academicons.min.css" integrity="sha512-W4yqoT1+8NLkinBLBZko+dFB2ZbHsYLDdr50VElllRcNt2Q4/GSs6u71UHKxB7S6JEMCp5Ve4xjh3eGQl/HRvg==" crossorigin="anonymous">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700|Roboto+Slab:100,300,400,500,700|Material+Icons">
+
+<!-- Code Syntax Highlighting -->
+<link rel="stylesheet" href="https://gitcdn.link/repo/jwarby/jekyll-pygments-themes/master/github.css" />
+
+<!-- Styles -->
+<link rel="shortcut icon" href="/assets/img/favicon.ico">
+<link rel="stylesheet" href="/assets/css/main.css">
+
+<link rel="canonical" href="/blog/2021/resnet/">
+
+<!-- Theming-->
+
+  <script src="/assets/js/theme.js"></script>
+
+
+    
+<!-- MathJax -->
+<script defer type="text/javascript" id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3.1.2/es5/tex-mml-chtml.js"></script>
+<script defer src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+
+
+    <script src="/assets/js/distillpub/template.v2.js"></script>
+    <script src="/assets/js/distillpub/transforms.v2.js"></script>
+    
+  </head>
+
+
+  <body class="fixed-top-nav ">
+
+    <!-- Header -->
+
+      <header>
+
+    <!-- Nav Bar -->
+    <nav id="navbar" class="navbar navbar-light navbar-expand-sm fixed-top">
+    <div class="container">
+      
+      <a class="navbar-brand title font-weight-lighter" href="/">
+       <span class="font-weight-bold">Clement</span>   Thorey
+      </a>
+      
+      <!-- Navbar Toogle -->
+      <button class="navbar-toggler collapsed ml-auto" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar top-bar"></span>
+        <span class="icon-bar middle-bar"></span>
+        <span class="icon-bar bottom-bar"></span>
+      </button>
+      <div class="collapse navbar-collapse text-right" id="navbarNav">
+        <ul class="navbar-nav ml-auto flex-nowrap">
+          <!-- About -->
+          <li class="nav-item ">
+            <a class="nav-link" href="/">
+              about
+              
+            </a>
+          </li>
+          
+          <!-- Blog -->
+          <li class="nav-item active">
+            <a class="nav-link" href="/blog/">
+              blog
+              
+            </a>
+          </li>
+          
+          <!-- Other pages -->
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          <li class="nav-item ">
+              <a class="nav-link" href="/projects/">
+                projects
+                
+              </a>
+          </li>
+          
+          
+          
+          <li class="nav-item ">
+              <a class="nav-link" href="/publications/">
+                publications
+                
+              </a>
+          </li>
+          
+          
+          
+          
+          
+            <div class = "toggle-container">
+              <a id = "light-toggle">
+                  <i class="fas fa-moon"></i>
+                  <i class="fas fa-sun"></i>
+              </a>
+            </div>
+          
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+</header>
+
+
+    <!-- Content -->
+
+      <div class="post distill">
+
+      <d-article>
+        <h1 id="from-resnet-to-resnest"><strong>From ResNet to ResNeSt</strong></h1>
+
+<p>Over the years, various improvements have been made on top of the original ResNet<d-cite key="resnet"></d-cite> architecture. In the following, I’ll review a few papers listing some of them.</p>
+
+<h2 id="summary">Summary</h2>
+
+<ol>
+  <li><strong>ResNeXt</strong><d-cite key="resnext"></d-cite> adopts group convolution to incorporate a multi-path strategy (similar to Inception) within the bottleneck block of ResNet.</li>
+  <li><strong>SE-Net</strong><d-cite key="senet"></d-cite> introduced a channel-wise attention mechanism which allows to re-calibrate each feature map.</li>
+  <li><strong>SK-Net</strong><d-cite key="sknet"></d-cite> introduced an attention mechanism which operates on feature map produced by different kernel-size, aka receptive field. It is then allowed to learn how to best combine the information at different scales.</li>
+  <li><strong>ResNeSt</strong><d-cite key="resnest"></d-cite> combines the idea of the papers above into one.</li>
+</ol>
+
+<h2 id="resnet-">ResNet <d-cite key="resnet"></d-cite></h2>
+
+<p>The ResNet architecture consists of a stack of bottleneck blocks, each of them boiling down to the the element-wise summation of two pathways</p>
+
+<ol>
+  <li>The first path encodes the feature map into a smaller embedding and projects it back to the original size</li>
+  <li>A second path which is just the identity</li>
+</ol>
+
+<p>This  <strong>identity shortcut connection</strong> allows the gradients to flow through the shortcut connections to any other earlier layer and greatly improve training (no more vanishing gradient problem).</p>
+
+<p><img src="https://i.imgur.com/JzRz7rn.png" alt="" /></p>
+
+<h2 id="resnext-">ResNeXt <d-cite key="resnext"></d-cite></h2>
+
+<p>Following ResNet, ResNeXt<d-cite key="resnext"></d-cite> introduced a multi-path (coming from inception) into ResNet. At the difference from Inception, all paths share the same topology. But we can play over the cardinality G - the number of multipaths to increase the model capacity.</p>
+
+<p>As for ResNet, the ResNetXt block consists of an identity path but also get G additional pathways. Each of them</p>
+
+<ol>
+  <li>Encode the feature map to a smaller embedding space - 4 here.</li>
+  <li>Use 3x3 convolution to process the embedding</li>
+  <li>Decode to the original size.</li>
+</ol>
+
+<p><img src="https://i.imgur.com/i6opTAc.png" alt="" /></p>
+
+<p>In practise, they use group convolution to implement the same idea</p>
+
+<div class="row mt-3">
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid" src="https://i.imgur.com/k2zXgoe.png" />
+    </div>
+</div>
+
+<p>This <a href="https://blog.yani.ai/filter-group-tutorial/">post</a> contains some very good explanation/illustration about what group convolution is. Here is a typical convolution operation. In particular, we convolve a feature map \(c_1 \times H \times W\) with \(c_2\) filters, each with the size \(c_1 \times h_f \times w_f\).</p>
+
+<div class="row mt-3">
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid" src="https://i.imgur.com/0tn7l0E.png" />
+    </div>
+</div>
+
+<p>During group convolution - each group will convolve a feature map \(\frac{c_1}{g} \times H \times W\) with a \(\frac{c_2}{g}\) filters, each with the size \(\frac{c_1}{g} \times h_f \times w_f\). Each group therefore outputs a \(\frac{c_2}{g} \times H \times W\) group of features. We then concatenate all the G feature groups to get \(c2\) filters.</p>
+
+<p><img src="https://i.imgur.com/EVWymu5.png =500x" alt="" /></p>
+
+<p>This greatly reduces computation and tends to work just as well in practise.</p>
+
+<blockquote>
+  <p>Denote the group size by G, then both the number of parameters and the computational cost will be divided by G, compared to the ordinary convolutio</p>
+</blockquote>
+
+<h2 id="squeeze-and-excitation-blocks-">Squeeze and excitation blocks <d-cite key="senet"></d-cite></h2>
+
+<p>In 2018, SE-Net<d-cite key="senet"></d-cite> introduced the idea of a channel-wise attention to recalibrate the feature map.</p>
+
+<p>Specifically, they introduce another type of block, the <strong>csSE</strong> block, i.e. channel and spatial Squeeze and Excitation.</p>
+
+<p>The <strong>cSE</strong> block factors out the spatial dependency by global average pooling to learn a channel wise descriptor which is used to rescale the channel description  – highlighting only useful channels. <strong>It squeezes along the spatial domains and excites along the channel</strong>.</p>
+
+<p>In contrast the <strong>sSE</strong> block <strong>sqeeze along the channel dimension and excites the spatial dimensions</strong>. The advantage of using the cSE block is to have a receptive field on all the images from the start. The sSE block is akin to spatial attention.</p>
+
+<div class="row mt-3">
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid" src="https://i.imgur.com/UnPEMSh.png" />
+    </div>
+</div>
+
+<p>Below is an implementation of this block using pytorch</p>
+
+<d-code block="" language="python">
+class scSE(nn.Module):
+        def __init__(self, in_channels, reduction):
+            super().__init__()
+            self.cse_block = nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Conv2d(in_channels, in_channels // 2, kernel_size=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(in_channels // 2, in_channels, kernel_size=1),
+                nn.Sigmoid())
+
+            self.sse_block = nn.Sequential(
+                nn.Conv2d(in_channels, 1, kernel_size=1), nn.Sigmoid())
+
+        def forward(self, x):
+            return self.sse_block(x) * x + self.cse_block(x) * x
+</d-code>
+
+<h2 id="sknet-">SKNet <d-cite key="sknet"></d-cite></h2>
+
+<p>SK-Net<d-cite key="sknet"></d-cite> proposes a way to enable the neurons to adaptively adjust their receptive fields.</p>
+
+<div class="row mt-3">
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid" src="https://i.imgur.com/cY4nfOS.png" />
+    </div>
+</div>
+
+<p>The main idea of this paper is to</p>
+<ol>
+  <li>Compute feature map with different receptive field by varying the kernel size, aka split</li>
+  <li>Then, global contextual information with embedded channel-wise statistics can be gathered with global average pooling across spatial dimensions followed by 1x1 convolution to a vector <strong>z</strong> of size <strong>d</strong>.</li>
+  <li>We then compute a channel wise attention and use it to compute a weighted average of all the different feature maps.</li>
+</ol>
+
+<p>An implementation of the block in pytorch is available below where <strong>UnitBlock</strong> is a sequence of Conv+BN+ReLu with a group of cardinality G.</p>
+
+<d-code block="" language="python">
+class SKBlock(nn.Module):
+    def __init__(self, in_planes, G=32, r=16, L=32):
+        """
+        Args:
+            in_planes (int): Nb of input channels
+            G (int): Num of convolution groups
+            r (int): the ratio for compute d, the length of z
+            L (int): The minimum size for d
+        """
+        super(SKBlock, self).__init__()
+        self.d = max(int(in_planes / r), L)
+        self.in_planes = in_planes
+        ## split
+        # 3x3 kernel
+        self.kernel0 = UnitBlock(self.in_planes,
+                                 self.in_planes,
+                                 kernel_size=3,
+                                 groups=G)
+        # 5x5 kernel as a 3x3 kernel with dilation=2
+        self.kernel1 = UnitBlock(self.in_planes,
+                                 self.in_planes,
+                                 kernel_size=3,
+                                 dilation=2,
+                                 padding=2,
+                                 groups=1)
+
+        ## fuse
+        self.fuse0 = nn.AdaptiveAvgPool2d(1)
+        self.fuse1 = UnitBlock(self.in_planes,
+                               self.d,
+                               kernel_size=1,
+                               padding=0)
+
+        # select
+        self.A = nn.Conv2d(self.d, self.in_planes, kernel_size=1, bias=False)
+        self.B = nn.Conv2d(self.d, self.in_planes, kernel_size=1, bias=False)
+        self.softmax = nn.Softmax(dim=1)
+
+    def split(self, x):
+        """Split layer --&gt; produce different feature maps with different
+        receptive fieds.
+        """
+        u0 = self.kernel0(x)  # BxCxHxW
+        u1 = self.kernel1(x)  # BxCxHxW
+        return u0, u1
+
+    def fuse(self, u0, u1):
+        """Fuse together the different feature map to produce
+        a channel-wise descriptor z.
+        """
+        u = u0 + u1  # BxCxHxW
+        s = self.fuse0(u)  # BxCx1x1
+        return self.fuse1(s)  # Bxdx1x1
+
+    def compute_attention_map(self, z):
+        """Create the attention map to know which channel to
+        attend for each of the feature map.
+        """
+        a = self.A(z)  # BxCx1x1
+        b = self.B(z)  # BxCx1x1
+        # attention_map  # Bx2xCx1x1
+        attention_map = torch.cat([a, b], 1).view(-1, 2, self.in_planes, 1, 1)
+        # learn which channel to attend for each branch.
+        attention_map = self.softmax(attention_map)  # Bx2xCx1x1
+        return attention_map
+
+    def select(self, u0, u1, attention_map):
+        """ As each feature map look at the input with a specific
+        receptive field, we effectively trained the network how to
+        combine the channel from different receptive field.
+        """
+        s = u0.shape
+        # concat u --&gt; # Bx2xCxHxW
+        u = torch.cat([u0, u1], 1).view(-1, 2, self.in_planes, s[-2], s[-1])
+        return torch.sum(u * attention_map, axis=1)  ## BxCxHxW
+        
+</d-code>
+
+<h2 id="resnest-">ResNeSt <d-cite key="resnest"></d-cite></h2>
+
+<p>ResNeSt <d-cite key="resnest"></d-cite> combines the idea of groups and split attentions to form a new block - the <strong>SplitAttentionBlock</strong></p>
+
+<p>It is parameterized by \(K\) the cardinality and \(R\) the radix. From ReNeXt, the feature map is divided into K groups. Each group is further broken down into \(R\) splits.</p>
+
+<p>Following SEnet and SKnet, they combine the information from the different splits by first computing a channel-wise attention map (BxRxCx1x1) which they multiply element wise by the concat output of all the splits (BxRxCxHxW).</p>
+
+<p>The process is very similar than in SK-net and depicted below in the paper</p>
+
+<div class="row mt-3">
+    <div class="col-sm mt-3 mt-md-0">
+        <img class="img-fluid" src="https://i.imgur.com/xcrDDtU.png" />
+    </div>
+</div>
+
+
+      </d-article>
+
+      <d-appendix>
+        <d-footnote-list></d-footnote-list>
+        <d-citation-list></d-citation-list>
+      </d-appendix>
+
+    </div>
+
+    <!-- Footer -->
+
+    
+<footer class="fixed-bottom">
+  <div class="container mt-0">
+    &copy; Copyright 2021 Clement  Thorey.
+    
+    
+  </div>
+</footer>
+
+
+
+  </body>
+
+  <d-bibliography src="/assets/bibliography/2020-01-10-resnet.bib">
+  </d-bibliography>
+
+</html>

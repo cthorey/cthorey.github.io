@@ -1,0 +1,10 @@
+I"±<p>This  past week,  I  have been  working on  the  assignments from  the
+Stanford                            CS                           class
+<a href="http://cs231n.github.io/">CS231n: Convolutional Neural Networks for Visual Recognition</a>. In
+particular,  I spent  a few  hours  deriving a  correct expression  to
+backpropagate          the           batchnorm          regularization
+(<a href="http://cs231n.github.io/assignments2016/assignment2/">Assigment 2 - Batch Normalization</a>)
+. While this post is mainly for me not to forget about what insights I
+have gained  in solving this  problem, I hope  it could be  useful to
+others that are struggling with back propagation.</p>
+:ET
